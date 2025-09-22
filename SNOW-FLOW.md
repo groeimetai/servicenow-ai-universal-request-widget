@@ -43,8 +43,8 @@ performEnhancedKnowledgeSearch() // Advanced search algorithms
 
 ### 5. AI Integration
 Snow-Flow's OpenAI integration:
-- Model: **GPT-4o-mini** (not GPT-4)
-- Fallback model: **GPT-4o-mini**
+- Model: **GPT-5-nano** (latest model)
+- Fallback model: **GPT-5-nano**
 - Temperature: 0.3 for consistent responses
 - Smart token management
 

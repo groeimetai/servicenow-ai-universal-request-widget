@@ -20,8 +20,8 @@ Navigate to **System Properties > System** and add:
 # Required Properties
 ai.openai.api.key = sk-xxxxxxxxxxxxxxxxxxxxx
 ai.openai.api.url = https://api.openai.com/v1/chat/completions
-ai.openai.model.primary = gpt-4o-mini
-ai.openai.model.fallback = gpt-4o-mini
+ai.openai.model.primary = gpt-5-nano
+ai.openai.model.fallback = gpt-5-nano
 
 # Optional Properties
 ai.widget.knowledge.enabled = true
@@ -68,7 +68,7 @@ Create these variables in the HTTP Method:
 | Variable | Type | Test Value |
 |----------|------|------------|
 | messages | String | [{"role":"user","content":"Hello"}] |
-| model | String | gpt-4o-mini |
+| model | String | gpt-5-nano |
 | temperature | String | 0.3 |
 | max_tokens | String | 500 |
 

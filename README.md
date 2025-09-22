@@ -7,7 +7,7 @@ An intelligent ServiceNow Service Portal widget built with **Snow-Flow** that re
 This widget transforms the traditional ServiceNow request process by:
 
 ### **Intelligent Request Understanding**
-- **AI Analysis**: Uses OpenAI GPT-4o-mini to understand requests in natural language
+- **AI Analysis**: Uses OpenAI GPT-5-nano to understand requests in natural language
 - **Smart Classification**: Automatically determines if it's a simple question or complex issue
 - **Context Awareness**: Understands the intent behind vague or incomplete requests
 
@@ -49,8 +49,8 @@ Add these properties to your ServiceNow instance:
 # OpenAI Configuration (REQUIRED)
 ai.openai.api.key = [Your OpenAI API Key]
 ai.openai.api.url = https://api.openai.com/v1/chat/completions
-ai.openai.model.primary = gpt-4o-mini
-ai.openai.model.fallback = gpt-4o-mini
+ai.openai.model.primary = gpt-5-nano
+ai.openai.model.fallback = gpt-5-nano
 
 # Widget Configuration (OPTIONAL)
 ai.widget.knowledge.enabled = true
@@ -323,7 +323,7 @@ This widget was developed using **Snow-Flow**, an advanced ServiceNow developmen
 ## 🙏 Credits
 
 - Built with **Snow-Flow** ServiceNow Development Framework
-- Powered by OpenAI GPT-4o-mini
+- Powered by OpenAI GPT-5-nano
 - ServiceNow Service Portal
 - Angular.js framework
 - Font Awesome icons
