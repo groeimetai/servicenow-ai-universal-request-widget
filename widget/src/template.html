@@ -1,0 +1,348 @@
+<div class="ai-request-container">
+<div class="panel-header">
+        <h3>
+            <i class="fa fa-robot"></i> 
+            <span ng-if="!data.isDutch">AI Universal Request Handler</span>
+            <span ng-if="data.isDutch">AI Universele Aanvraag Verwerker</span>
+        </h3>
+        <p ng-if="!data.isDutch">Powered by advanced AI to understand and process your requests</p>
+        <p ng-if="data.isDutch">Aangedreven door geavanceerde AI om uw aanvragen te begrijpen en te verwerken</p>
+    </div>
+    <div class="panel-body">
+<div ng-if="!c.showQuestions && !c.submitted">
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fa fa-comment"></i> 
+                    <span ng-if="!data.isDutch">What can we help you with today?</span>
+                    <span ng-if="data.isDutch">Waarmee kunnen we u vandaag helpen?</span>
+                </label>
+                <textarea 
+                    class="form-control" 
+                    ng-model="c.initialRequest" 
+                    rows="4" 
+                    placeholder="{{data.isDutch ? 'Beschrijf uw aanvraag in detail...' : 'Describe your request in detail...'}}"
+                    ng-disabled="c.processing">
+                </textarea>
+            </div>
+<div class="form-group">
+                <label class="form-label">
+                    <i class="fa fa-tag"></i> 
+                    <span ng-if="!data.isDutch">Request Category (Optional)</span>
+                    <span ng-if="data.isDutch">Aanvraag Categorie (Optioneel)</span>
+                </label>
+                <select 
+                    class="form-control" 
+                    ng-model="c.requestTypeHint"
+                    ng-disabled="c.processing">
+                    <option value="" ng-if="!data.isDutch">-- Let AI determine --</option>
+                    <option value="" ng-if="data.isDutch">-- Laat AI bepalen --</option>
+                    <option value="incident" ng-if="!data.isDutch">Incident / Issue</option>
+                    <option value="incident" ng-if="data.isDutch">Incident / Probleem</option>
+                    <option value="request" ng-if="!data.isDutch">Service Request</option>
+                    <option value="request" ng-if="data.isDutch">Service Aanvraag</option>
+                    <option value="change" ng-if="!data.isDutch">Change Request</option>
+                    <option value="change" ng-if="data.isDutch">Wijzigingsverzoek</option>
+                    <option value="access" ng-if="!data.isDutch">Access Request</option>
+                    <option value="access" ng-if="data.isDutch">Toegang Aanvraag</option>
+                    <option value="hardware" ng-if="!data.isDutch">Hardware Request</option>
+                    <option value="hardware" ng-if="data.isDutch">Hardware Aanvraag</option>
+                    <option value="software" ng-if="!data.isDutch">Software Request</option>
+                    <option value="software" ng-if="data.isDutch">Software Aanvraag</option>
+                    <option value="hr" ng-if="!data.isDutch">HR Request</option>
+                    <option value="hr" ng-if="data.isDutch">HR Aanvraag</option>
+                    <option value="other" ng-if="!data.isDutch">Other</option>
+                    <option value="other" ng-if="data.isDutch">Overig</option>
+                </select>
+            </div>
+<div class="form-actions text-center">
+                <button 
+                    class="btn btn-primary btn-lg" 
+                    ng-click="c.generateResponse()" 
+                    ng-disabled="!c.initialRequest || c.processing">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': c.processing, 'fa-brain': !c.processing}"></i>
+                    <span ng-if="!data.isDutch">{{c.processing ? 'Analyzing Request...' : 'Get AI Response'}}</span>
+                    <span ng-if="data.isDutch">{{c.processing ? 'Aanvraag Analyseren...' : 'AI Reactie Krijgen'}}</span>
+                </button>
+            </div>
+        </div>
+<div ng-if="c.processing" class="text-center loading-spinner">
+            <i class="fa fa-spinner fa-spin fa-3x"></i>
+            <p ng-if="!data.isDutch">{{c.processingMessage || 'Processing...'}}</p>
+            <p ng-if="data.isDutch">{{c.processingMessage || 'Verwerken...'}}</p>
+        </div>
+<div ng-if="c.errorMessage" class="alert alert-danger">
+            <i class="fa fa-exclamation-triangle"></i>
+            <strong ng-if="!data.isDutch">Error:</strong>
+            <strong ng-if="data.isDutch">Fout:</strong> {{c.errorMessage}}
+            <button class="btn btn-sm btn-default pull-right" ng-click="c.clearError()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+<div ng-if="c.showResponse && c.responseType === 'simple_question' && !c.processing" class="ai-response-section">
+            <div class="ai-response-header">
+                <h4><i class="fa fa-lightbulb-o"></i> 
+                    <span ng-if="!data.isDutch">AI Answer</span>
+                    <span ng-if="data.isDutch">AI Antwoord</span>
+                </h4>
+                <p class="text-muted" ng-if="!data.isDutch">Here's the answer to your question:</p>
+                <p class="text-muted" ng-if="data.isDutch">Hier is het antwoord op uw vraag:</p>
+            </div>
+            <div class="ai-direct-answer">
+                <div class="answer-content">
+                    <i class="fa fa-quote-left"></i>
+                    <div ng-bind-html="c.directAnswer"></div>
+                    <i class="fa fa-quote-right pull-right"></i>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-success" ng-click="c.resetForm()">
+                    <i class="fa fa-plus"></i> 
+                    <span ng-if="!data.isDutch">Ask Another Question</span>
+                    <span ng-if="data.isDutch">Stel Nog Een Vraag</span>
+                </button>
+                <button class="btn btn-default" ng-click="c.createTicketDirectly()">
+                    <i class="fa fa-ticket"></i> 
+                    <span ng-if="!data.isDutch">Still Need Support Ticket</span>
+                    <span ng-if="data.isDutch">Nog Steeds Support Ticket Nodig</span>
+                </button>
+            </div>
+        </div>
+<div ng-if="c.showResponse && c.responseType === 'complex_issue' && !c.processing" class="ai-suggestions-section">
+            <div class="ai-suggestions-header">
+                <h4><i class="fa fa-wrench"></i> 
+                    <span ng-if="!data.isDutch">AI Suggestions</span>
+                    <span ng-if="data.isDutch">AI Suggesties</span>
+                </h4>
+                <p class="text-muted" ng-if="!data.isDutch">Try these suggestions first - they might resolve your issue quickly:</p>
+                <p class="text-muted" ng-if="data.isDutch">Probeer eerst deze suggesties - ze kunnen uw probleem snel oplossen:</p>
+            </div>
+            <div class="suggestions-list">
+                <div ng-repeat="suggestion in c.suggestions" class="suggestion-item">
+                    <span class="suggestion-number">{{$index + 1}}</span>
+                    <span class="suggestion-text" ng-bind-html="suggestion"></span>
+                </div>
+            </div>
+            <div class="suggestions-response">
+                <h5 ng-if="!data.isDutch">Have you tried these suggestions?</h5>
+                <h5 ng-if="data.isDutch">Heeft u deze suggesties geprobeerd?</h5>
+                <div class="suggestion-buttons">
+                    <button class="btn btn-success" ng-click="c.handleSuggestionResponse('resolved')">
+                        <i class="fa fa-check-circle"></i> 
+                        <span ng-if="!data.isDutch">Yes, tried them and no longer need a ticket</span>
+                        <span ng-if="data.isDutch">Ja, geprobeerd en heb geen ticket meer nodig</span>
+                    </button>
+                    <button class="btn btn-primary" ng-click="c.handleSuggestionResponse('proceed')">
+                        <i class="fa fa-arrow-right"></i> 
+                        <span ng-if="!data.isDutch">Proceed to create ticket</span>
+                        <span ng-if="data.isDutch">Doorgaan met ticket aanmaken</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+<div ng-if="c.showQuestions && !c.submitted && !c.processing">
+            <div class="ai-questions-header">
+                <h4><i class="fa fa-list-check"></i> Please answer the following questions:</h4>
+                <p class="text-muted">AI has generated specific questions based on your request</p>
+            </div>
+            <form name="questionsForm">
+                <div ng-repeat="question in c.aiQuestions" class="question-item">
+                    <label class="question-label">
+                        <span class="question-number">{{$index + 1}}</span>
+                        {{question.question}}
+                        <span ng-if="question.required" class="text-danger">*</span>
+                    </label>
+<input 
+                        ng-if="!question.type || question.type === 'text' || question.type === 'email' || question.type === 'phone' || question.type === 'number'"
+                        type="{{question.type || 'text'}}"
+                        class="form-control"
+                        ng-model="c.responses[$index]"
+                        ng-required="question.required"
+                        placeholder="{{question.placeholder || (data.isDutch ? 'Voer uw antwoord in' : 'Enter your answer')}}"
+                    />
+<textarea 
+                        ng-if="question.type === 'textarea'"
+                        class="form-control"
+                        ng-model="c.responses[$index]"
+                        ng-required="question.required"
+                        rows="3"
+                        placeholder="{{question.placeholder || (data.isDutch ? 'Voer uw antwoord in' : 'Enter your answer')}}"
+                    ></textarea>
+<select 
+                        ng-if="question.type === 'select' || question.type === 'dropdown'"
+                        class="form-control"
+                        ng-model="c.responses[$index]"
+                        ng-required="question.required">
+                        <option value="">-- Select an option --</option>
+                        <option ng-repeat="option in question.options" value="{{option}}">{{option}}</option>
+                    </select>
+<div ng-if="question.type === 'radio'" class="radio-group">
+                        <div class="radio" ng-repeat="option in question.options">
+                            <label>
+                                <input 
+                                    type="radio"
+                                    name="question_{{$parent.$index}}"
+                                    ng-model="c.responses[$parent.$index]"
+                                    value="{{option}}"
+                                    ng-required="question.required"
+                                />
+                                {{option}}
+                            </label>
+                        </div>
+<div ng-if="!question.options || question.options.length === 0">
+                            <div class="radio">
+                                <label>
+                                    <input 
+                                        type="radio"
+                                        name="question_{{$index}}"
+                                        ng-model="c.responses[$index]"
+                                        value="Yes"
+                                        ng-required="question.required"
+                                    />
+                                    <span ng-if="!data.isDutch">Yes</span>
+                                    <span ng-if="data.isDutch">Ja</span>
+                                </label>
+                            </div>
+                            <div class="radio">
+                                <label>
+                                    <input 
+                                        type="radio"
+                                        name="question_{{$index}}"
+                                        ng-model="c.responses[$index]"
+                                        value="No"
+                                        ng-required="question.required"
+                                    />
+                                    <span ng-if="!data.isDutch">No</span>
+                                    <span ng-if="data.isDutch">Nee</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+<div ng-if="question.type === 'checkbox'" class="checkbox-group">
+                        <div class="checkbox" ng-repeat="option in question.options">
+                            <label>
+                                <input 
+                                    type="checkbox"
+                                    ng-model="c.checkboxResponses[$parent.$index][option]"
+                                    ng-change="c.updateCheckboxResponse($parent.$index)"
+                                />
+                                {{option}}
+                            </label>
+                        </div>
+<div ng-if="!question.options || question.options.length === 0" class="checkbox">
+                            <label>
+                                <input 
+                                    type="checkbox"
+                                    ng-model="c.responses[$index]"
+                                    ng-true-value="'Yes'"
+                                    ng-false-value="'No'"
+                                />
+                                {{question.checkboxLabel || (data.isDutch ? 'Vink aan indien van toepassing' : 'Check if applicable')}}
+                            </label>
+                        </div>
+                    </div>
+<input 
+                        ng-if="question.type === 'date' || question.type === 'datetime' || question.type === 'datetime-local'"
+                        type="{{question.type === 'datetime' ? 'datetime-local' : question.type}}"
+                        class="form-control"
+                        ng-model="c.responses[$index]"
+                        ng-required="question.required"
+                    />
+<div ng-if="question.type === 'priority'" class="priority-scale">
+                        <div class="priority-option">
+                            <label class="priority-label priority-critical">
+                                <input type="radio" name="priority_{{$index}}" ng-model="c.responses[$index]" value="1" ng-required="question.required"/>
+                                <span class="priority-text" ng-if="!data.isDutch">1 - Critical</span>
+                                <span class="priority-text" ng-if="data.isDutch">1 - Kritiek</span>
+                            </label>
+                        </div>
+                        <div class="priority-option">
+                            <label class="priority-label priority-high">
+                                <input type="radio" name="priority_{{$index}}" ng-model="c.responses[$index]" value="2" ng-required="question.required"/>
+                                <span class="priority-text" ng-if="!data.isDutch">2 - High</span>
+                                <span class="priority-text" ng-if="data.isDutch">2 - Hoog</span>
+                            </label>
+                        </div>
+                        <div class="priority-option">
+                            <label class="priority-label priority-medium">
+                                <input type="radio" name="priority_{{$index}}" ng-model="c.responses[$index]" value="3" ng-required="question.required"/>
+                                <span class="priority-text" ng-if="!data.isDutch">3 - Moderate</span>
+                                <span class="priority-text" ng-if="data.isDutch">3 - Gemiddeld</span>
+                            </label>
+                        </div>
+                        <div class="priority-option">
+                            <label class="priority-label priority-low">
+                                <input type="radio" name="priority_{{$index}}" ng-model="c.responses[$index]" value="4" ng-required="question.required"/>
+                                <span class="priority-text" ng-if="!data.isDutch">4 - Low</span>
+                                <span class="priority-text" ng-if="data.isDutch">4 - Laag</span>
+                            </label>
+                        </div>
+                    </div>
+<select 
+                        ng-if="question.type === 'yesno' || question.type === 'boolean'"
+                        class="form-control"
+                        ng-model="c.responses[$index]"
+                        ng-required="question.required">
+                        <option value="" ng-if="!data.isDutch">-- Select --</option>
+                        <option value="" ng-if="data.isDutch">-- Selecteer --</option>
+                        <option value="Yes" ng-if="!data.isDutch">Yes</option>
+                        <option value="Yes" ng-if="data.isDutch">Ja</option>
+                        <option value="No" ng-if="!data.isDutch">No</option>
+                        <option value="No" ng-if="data.isDutch">Nee</option>
+                    </select>
+<div ng-if="question.type && question.type !== 'text' && question.type !== 'email' && question.type !== 'phone' && question.type !== 'number' && question.type !== 'textarea' && question.type !== 'select' && question.type !== 'dropdown' && question.type !== 'radio' && question.type !== 'checkbox' && question.type !== 'date' && question.type !== 'datetime' && question.type !== 'datetime-local' && question.type !== 'priority' && question.type !== 'yesno' && question.type !== 'boolean'">
+                        <small class="text-warning" ng-if="!data.isDutch">Unknown field type '{{question.type}}' - using text input</small>
+                        <small class="text-warning" ng-if="data.isDutch">Onbekend veld type '{{question.type}}' - tekst invoer wordt gebruikt</small>
+                        <input 
+                            type="text"
+                            class="form-control"
+                            ng-model="c.responses[$index]"
+                            ng-required="question.required"
+                            placeholder="{{question.placeholder || (data.isDutch ? 'Voer uw antwoord in' : 'Enter your answer')}}"
+                        />
+                    </div>
+                </div>
+            </form>
+<div class="form-actions">
+                <button 
+                    class="btn btn-success btn-lg" 
+                    ng-click="c.submitRequest()" 
+                    ng-disabled="questionsForm.$invalid || c.processing">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': c.processing, 'fa-check': !c.processing}"></i>
+                    <span ng-if="!data.isDutch">{{c.processing ? 'Submitting...' : 'Submit Request'}}</span>
+                    <span ng-if="data.isDutch">{{c.processing ? 'Indienen...' : 'Aanvraag Indienen'}}</span>
+                </button>
+                <button 
+                    class="btn btn-default btn-lg" 
+                    ng-click="c.goBack()">
+                    <i class="fa fa-arrow-left"></i> 
+                    <span ng-if="!data.isDutch">Back</span>
+                    <span ng-if="data.isDutch">Terug</span>
+                </button>
+                <button 
+                    class="btn btn-warning btn-lg" 
+                    ng-click="c.generateQuestions()">
+                    <i class="fa fa-refresh"></i> 
+                    <span ng-if="!data.isDutch">Regenerate</span>
+                    <span ng-if="data.isDutch">Opnieuw Genereren</span>
+                </button>
+            </div>
+        </div>
+<div ng-if="c.submitted" class="alert alert-success">
+            <h4><i class="fa fa-check-circle"></i> 
+                <span ng-if="!data.isDutch">Request Submitted Successfully!</span>
+                <span ng-if="data.isDutch">Aanvraag Succesvol Ingediend!</span>
+            </h4>
+            <p ng-if="!data.isDutch">Your {{c.finalRequestType || 'request'}} has been created.</p>
+            <p ng-if="data.isDutch">Uw {{c.finalRequestType || 'aanvraag'}} is aangemaakt.</p>
+            <p ng-if="c.createdRecordNumber && !data.isDutch"><strong>Record Number:</strong> {{c.createdRecordNumber}}</p>
+            <p ng-if="c.createdRecordNumber && data.isDutch"><strong>Record Nummer:</strong> {{c.createdRecordNumber}}</p>
+            <div class="form-actions">
+                <button class="btn btn-success" ng-click="c.resetForm()">
+                    <i class="fa fa-plus"></i> 
+                    <span ng-if="!data.isDutch">Create Another Request</span>
+                    <span ng-if="data.isDutch">Maak Nog Een Aanvraag</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
