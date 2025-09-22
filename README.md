@@ -1,13 +1,13 @@
 # AI Universal Request Handler Widget for ServiceNow
 
-An intelligent ServiceNow Service Portal widget that revolutionizes request handling through AI-powered automation, smart knowledge base integration, and multi-language support.
+An intelligent ServiceNow Service Portal widget built with **Snow-Flow** that revolutionizes request handling through AI-powered automation, smart knowledge base integration, and multi-language support.
 
 ## 🚀 What This Widget Does
 
 This widget transforms the traditional ServiceNow request process by:
 
 ### **Intelligent Request Understanding**
-- **AI Analysis**: Uses OpenAI GPT-4 to understand requests in natural language
+- **AI Analysis**: Uses OpenAI GPT-4o-mini to understand requests in natural language
 - **Smart Classification**: Automatically determines if it's a simple question or complex issue
 - **Context Awareness**: Understands the intent behind vague or incomplete requests
 
@@ -50,7 +50,7 @@ Add these properties to your ServiceNow instance:
 ai.openai.api.key = [Your OpenAI API Key]
 ai.openai.api.url = https://api.openai.com/v1/chat/completions
 ai.openai.model.primary = gpt-4o-mini
-ai.openai.model.fallback = gpt-3.5-turbo
+ai.openai.model.fallback = gpt-4o-mini
 
 # Widget Configuration (OPTIONAL)
 ai.widget.knowledge.enabled = true
@@ -311,13 +311,23 @@ Track widget performance:
 
 MIT License - See LICENSE file
 
+## 🛠️ Built With Snow-Flow
+
+This widget was developed using **Snow-Flow**, an advanced ServiceNow development framework that provides:
+- MCP (Model Context Protocol) integration for ServiceNow
+- Automated widget deployment and validation
+- ES5 JavaScript compatibility checking
+- Multi-language support framework
+- Knowledge base integration tools
+
 ## 🙏 Credits
 
-- Built with ServiceNow Service Portal
-- Powered by OpenAI GPT-4
-- Uses Angular.js framework
-- Icons by Font Awesome
+- Built with **Snow-Flow** ServiceNow Development Framework
+- Powered by OpenAI GPT-4o-mini
+- ServiceNow Service Portal
+- Angular.js framework
+- Font Awesome icons
 
 ---
 
-**Developed for the ServiceNow Community** | **Version 1.3.0** | **Production Ready**
+**Developed with Snow-Flow for the ServiceNow Community** | **Version 1.3.0** | **Production Ready**

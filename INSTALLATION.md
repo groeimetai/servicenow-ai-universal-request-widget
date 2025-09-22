@@ -1,5 +1,7 @@
 # Installation Guide - AI Universal Request Handler Widget
 
+> **Built with Snow-Flow** - The advanced ServiceNow development framework
+
 ## 🚀 Quick Start Guide
 
 ### Prerequisites Checklist
@@ -19,7 +21,7 @@ Navigate to **System Properties > System** and add:
 ai.openai.api.key = sk-xxxxxxxxxxxxxxxxxxxxx
 ai.openai.api.url = https://api.openai.com/v1/chat/completions
 ai.openai.model.primary = gpt-4o-mini
-ai.openai.model.fallback = gpt-3.5-turbo
+ai.openai.model.fallback = gpt-4o-mini
 
 # Optional Properties
 ai.widget.knowledge.enabled = true
