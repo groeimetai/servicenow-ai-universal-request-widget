@@ -106,22 +106,25 @@ graph TD
     A[User Enters Request] --> B[AI Analysis & Classification]
     B --> C{Request Type?}
     C -->|Question| D[Search Knowledge Base]
-    C -->|Incident/Issue| E[Generate Smart Questions]
+    C -->|Incident/Issue| E[AI Solution Suggestions]
     C -->|Service Request| F[Show Service Options]
     D --> G{Knowledge Found?}
     G -->|Yes| H[AI Answer with KB Articles]
     G -->|No| I[Generate AI Answer]
     H --> J{User Satisfied?}
     I --> J
-    J -->|Yes| K[Close Without Ticket]
-    J -->|No| L[Option to Create Ticket]
-    E --> M[Collect Additional Info]
-    F --> M
-    M --> N[Create Appropriate Record]
-    N --> O[Show Confirmation]
-    L --> P{Create Ticket?}
-    P -->|Yes| M
-    P -->|No| K
+    E --> K{Issue Resolved?}
+    K -->|Yes| L[Close Without Ticket]
+    K -->|No| M[Generate Smart Questions]
+    J -->|Yes| L
+    J -->|No| N[Option to Create Ticket]
+    M --> O[Collect Additional Info]
+    F --> O
+    O --> P[Create Appropriate Record]
+    P --> Q[Show Confirmation]
+    N --> R{Create Ticket?}
+    R -->|Yes| O
+    R -->|No| L
 ```
 
 ### Language Detection
