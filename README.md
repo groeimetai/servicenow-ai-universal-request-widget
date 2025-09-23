@@ -103,24 +103,25 @@ Configure these in the widget instance:
 
 ```mermaid
 graph TD
-    A[User Enters Request] --> B[Search Knowledge Base]
-    B --> C{Knowledge Found?}
-    C -->|Yes| D[Use KB Articles for Answer]
-    C -->|No| E[Generate AI Answer]
-    D --> F[AI Enriched Response with KB]
-    E --> F
-    F --> G{User Satisfied?}
-    G -->|Yes| H[Close Without Ticket]
-    G -->|No| I{Request Type?}
-    I -->|Simple Question| J[Provide Additional Help]
-    I -->|Complex Issue| K[Generate Smart Questions]
-    J --> L[Option to Create Ticket]
-    K --> M[Collect Additional Info]
+    A[User Enters Request] --> B[AI Analysis & Classification]
+    B --> C{Request Type?}
+    C -->|Question| D[Search Knowledge Base]
+    C -->|Incident/Issue| E[Generate Smart Questions]
+    C -->|Service Request| F[Show Service Options]
+    D --> G{Knowledge Found?}
+    G -->|Yes| H[AI Answer with KB Articles]
+    G -->|No| I[Generate AI Answer]
+    H --> J{User Satisfied?}
+    I --> J
+    J -->|Yes| K[Close Without Ticket]
+    J -->|No| L[Option to Create Ticket]
+    E --> M[Collect Additional Info]
+    F --> M
     M --> N[Create Appropriate Record]
     N --> O[Show Confirmation]
     L --> P{Create Ticket?}
     P -->|Yes| M
-    P -->|No| H
+    P -->|No| K
 ```
 
 ### Language Detection
