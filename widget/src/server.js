@@ -67,13 +67,13 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
     try {
       // Detect language
       var detectedLanguage = detectLanguage(initialRequest);
-      // Get OpenAI API configuration
-      var apiKey = gs.getProperty('openai.api.key');
-      if (!apiKey) {
+      // Check if Datacenter LLM is configured
+      var llmConfigured = gs.getProperty('datacenter.llm.enabled', 'true');
+      if (llmConfigured !== 'true') {
         return {
           success: true,
           classification: 'complex_issue',
-          message: detectedLanguage === 'Dutch' ? 'AI service niet beschikbaar, ga door naar vragen' : 'AI service not available, proceeding to questions',
+          message: detectedLanguage === 'Dutch' ? 'LLM service niet beschikbaar, ga door naar vragen' : 'LLM service not available, proceeding to questions',
           proceedToQuestions: true
         };
       }
@@ -82,10 +82,10 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       // Step 2: Evaluate knowledge relevance BEFORE using it
       var relevantKnowledge = null;
       if (knowledgeSources.success && knowledgeSources.results && knowledgeSources.results.length > 0) {
-        relevantKnowledge = evaluateKnowledgeRelevance(initialRequest, knowledgeSources, detectedLanguage, apiKey);
+        relevantKnowledge = evaluateKnowledgeRelevance(initialRequest, knowledgeSources, detectedLanguage, null);
       }
       // Step 3: Classify the request as simple question or complex issue
-      var classification = classifyRequest(initialRequest, detectedLanguage, apiKey);
+      var classification = classifyRequest(initialRequest, detectedLanguage, null);
       // Step 4: Generate response with relevant knowledge only
       if (classification.type === 'simple_question') {
         // For simple questions, ALWAYS use found knowledge articles if available
@@ -107,7 +107,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
           };
         }
         // Generate direct answer for simple questions with knowledge enhancement
-        var directAnswer = generateDirectAnswerWithKnowledge(initialRequest, detectedLanguage, apiKey, relevantKnowledge);
+        var directAnswer = generateDirectAnswerWithKnowledge(initialRequest, detectedLanguage, null, relevantKnowledge);
         return {
           success: true,
           classification: 'simple_question',
@@ -120,7 +120,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         };
       } else {
         // Generate suggestions for complex issues with knowledge enhancement
-        var suggestions = generateSuggestionsWithKnowledge(initialRequest, detectedLanguage, apiKey, relevantKnowledge);
+        var suggestions = generateSuggestionsWithKnowledge(initialRequest, detectedLanguage, null, relevantKnowledge);
         return {
           success: true,
           classification: 'complex_issue', 
@@ -143,7 +143,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       };
     }
   }
-  function evaluateKnowledgeRelevance(userQuestion, knowledgeResults, language, apiKey) {
+  function evaluateKnowledgeRelevance(userQuestion, knowledgeResults, language, notUsed) {
     try {
       if (!knowledgeResults.success || !knowledgeResults.results || knowledgeResults.results.length === 0) {
         return { isRelevant: false, articles: [], reason: 'No articles found' };
@@ -178,7 +178,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += 'Only answer "NO" if the articles are COMPLETELY unrelated to the question.\n';
         prompt += 'Answer ONLY with: YES or NO';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 50);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 50);
       if (response.success) {
         var evaluation = response.content.trim().toUpperCase();
         var isRelevant = (evaluation.indexOf('YES') >= 0 || evaluation.indexOf('JA') >= 0);
@@ -644,7 +644,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
     html += '</div>';
     return html;
   }
-  function generateDirectAnswerWithKnowledge(request, language, apiKey, relevantKnowledge) {
+  function generateDirectAnswerWithKnowledge(request, language, notUsed, relevantKnowledge) {
     try {
       var hasKnowledgeSources = relevantKnowledge && relevantKnowledge.isRelevant && relevantKnowledge.articles && relevantKnowledge.articles.length > 0;
       var knowledgeContext = '';
@@ -696,7 +696,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         }
         prompt += 'Provide a clear, practical answer in maximum 300 words.';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 400);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 400);
       if (response.success) {
         var formattedAnswer = convertMarkdownToHTML(response.content);
         // Add knowledge sources at the bottom if available
@@ -726,7 +726,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       };
     }
   }
-  function generateSuggestionsWithKnowledge(request, language, apiKey, relevantKnowledge) {
+  function generateSuggestionsWithKnowledge(request, language, notUsed, relevantKnowledge) {
     try {
       var hasKnowledgeSources = relevantKnowledge && relevantKnowledge.isRelevant && relevantKnowledge.articles && relevantKnowledge.articles.length > 0;
       var knowledgeContext = '';
@@ -788,7 +788,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += ']\n\n';
         prompt += 'Focus on simple steps the user can perform themselves.';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 500);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 500);
       if (response.success) {
         var suggestions = parseJSONResponse(response.content);
         if (suggestions && suggestions.length > 0) {
@@ -827,7 +827,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       };
     }
   }
-  function classifyRequest(request, language, apiKey) {
+  function classifyRequest(request, language, notUsed) {
     try {
       var prompt = '';
       if (language === 'Dutch') {
@@ -863,7 +863,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += 'User Request: "' + request + '"\n\n';
         prompt += 'Respond only with: SIMPLE_QUESTION or COMPLEX_ISSUE';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 50);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 50);
       if (response.success) {
         var classification = response.content.trim().toUpperCase();
         if (classification.indexOf('SIMPLE_QUESTION') >= 0) {
@@ -908,7 +908,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       return { type: 'complex_issue', confidence: 'medium' };
     }
   }
-  function generateDirectAnswer(request, language, apiKey) {
+  function generateDirectAnswer(request, language, notUsed) {
     try {
       var prompt = '';
       if (language === 'Dutch') {
@@ -922,7 +922,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += 'Provide a clear, practical answer. If you don\'t have exact information, provide general guidelines.\n';
         prompt += 'Keep the answer concise but informative (max 200 words).';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 300);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 300);
       if (response.success) {
         return {
           answer: response.content,
@@ -944,7 +944,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       };
     }
   }
-  function generateSuggestions(request, language, apiKey) {
+  function generateSuggestions(request, language, notUsed) {
     try {
       var prompt = '';
       if (language === 'Dutch') {
@@ -968,7 +968,7 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += ']\n\n';
         prompt += 'Focus on simple steps the user can perform themselves.';
       }
-      var response = callOpenAI(prompt, apiKey, 'gpt-4o-mini', 400);
+      var response = callOpenAI(prompt, null, 'alliander-ai-assistant', 400);
       if (response.success) {
         var suggestions = parseJSONResponse(response.content);
         if (suggestions && suggestions.length > 0) {
@@ -993,29 +993,26 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
       };
     }
   }
-  function callOpenAI(prompt, apiKey, model, maxTokens) {
+  function callOpenAI(prompt, notUsed, model, maxTokens) {
+    // Now using Datacenter LLM with MID server
     try {
-      var request = new sn_ws.RESTMessageV2();
-      request.setEndpoint('https://api.openai.com/v1/chat/completions');
-      request.setHttpMethod('POST');
-      request.setRequestHeader('Authorization', 'Bearer ' + apiKey);
-      request.setRequestHeader('Content-Type', 'application/json');
+      var request = new sn_ws.RESTMessageV2('Datacenter LLM REST', 'vfos120b POST');
+      request.setMIDServer('al_dc_llm_mid');
+
       var requestBody = {
-        model: model || 'gpt-4o-mini',
+        model: 'alliander-ai-assistant',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        temperature: 0.3
+        temperature: 0.3,
+        max_tokens: maxTokens || 200
       };
-      if (model && model.indexOf('gpt-4o') >= 0) {
-        requestBody.max_completion_tokens = maxTokens || 200;
-      } else {
-        requestBody.max_tokens = maxTokens || 200;
-      }
+
       request.setRequestBody(JSON.stringify(requestBody));
       var response = request.execute();
       var httpStatus = response.getStatusCode();
+
       if (httpStatus == 200) {
         var aiResponse = JSON.parse(response.getBody());
         return {
@@ -1043,41 +1040,32 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
     try {
       // Detect language
       var detectedLanguage = detectLanguage(initialRequest);
-      // Get OpenAI API configuration from system properties
-      var apiKey = gs.getProperty('openai.api.key');
-      var apiUrl = 'https://api.openai.com/v1/chat/completions';
-      if (!apiKey) {
+      // Check if Datacenter LLM is configured
+      var llmConfigured = gs.getProperty('datacenter.llm.enabled', 'true');
+      if (llmConfigured !== 'true') {
         return {
           success: true,
           questions: getDefaultQuestions(detectedLanguage),
           usingFallback: true,
-          message: detectedLanguage === 'Dutch' ? 'AI service niet beschikbaar, standaard vragen worden gebruikt' : 'AI service not available, using default questions'
+          message: detectedLanguage === 'Dutch' ? 'LLM service niet beschikbaar, standaard vragen worden gebruikt' : 'LLM service not available, using default questions'
         };
       }
-      // Use reliable model
-      var modelToUse = 'gpt-4o-mini';
       // Create AI prompt for question generation
       var prompt = createQuestionGenerationPrompt(initialRequest, requestTypeHint, detectedLanguage);
-      // Call OpenAI API with chosen model
-      var request = new sn_ws.RESTMessageV2();
-      request.setEndpoint(apiUrl);
-      request.setHttpMethod('POST');
-      request.setRequestHeader('Authorization', 'Bearer ' + apiKey);
-      request.setRequestHeader('Content-Type', 'application/json');
+      // Call Datacenter LLM via MID server
+      var request = new sn_ws.RESTMessageV2('Datacenter LLM REST', 'vfos120b POST');
+      request.setMIDServer('al_dc_llm_mid');
+
       var requestBody = {
-        model: modelToUse,
+        model: 'alliander-ai-assistant',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 2000
       };
-      // Use appropriate token parameter based on model
-      if (modelToUse.indexOf('gpt-5') >= 0 || modelToUse.indexOf('gpt-4o') >= 0) {
-        requestBody.max_completion_tokens = 2000;
-      } else {
-        requestBody.max_tokens = 2000;
-      }
+
       request.setRequestBody(JSON.stringify(requestBody));
       var response = request.execute();
       var responseBody = response.getBody();
@@ -1229,8 +1217,9 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
   }
   function generateAISummaryAndCategorization(submissionData) {
     try {
-      var apiKey = gs.getProperty('openai.api.key');
-      if (!apiKey) {
+      // Check if Datacenter LLM is configured
+      var llmConfigured = gs.getProperty('datacenter.llm.enabled', 'true');
+      if (llmConfigured !== 'true') {
         return null;
       }
       var language = detectLanguage(submissionData.initialRequest);
@@ -1283,26 +1272,20 @@ data.isDutch = data.userSystemLanguage === 'Dutch';
         prompt += '- HR: Human resources, leave, payroll, onboarding, HR policies\n';
         prompt += '- QUERY: Question for information or help';
       }
-      // Call OpenAI API
-      var request = new sn_ws.RESTMessageV2();
-      request.setEndpoint('https://api.openai.com/v1/chat/completions');
-      request.setHttpMethod('POST');
-      request.setRequestHeader('Authorization', 'Bearer ' + apiKey);
-      request.setRequestHeader('Content-Type', 'application/json');
-      var modelToUse = 'gpt-4o-mini';
+      // Call Datacenter LLM via MID server
+      var request = new sn_ws.RESTMessageV2('Datacenter LLM REST', 'vfos120b POST');
+      request.setMIDServer('al_dc_llm_mid');
+
       var requestBody = {
-        model: modelToUse,
+        model: 'alliander-ai-assistant',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        temperature: 0.3
+        temperature: 0.3,
+        max_tokens: 1000
       };
-      if (modelToUse.indexOf('gpt-4o') >= 0) {
-        requestBody.max_completion_tokens = 1000;
-      } else {
-        requestBody.max_tokens = 1000;
-      }
+
       request.setRequestBody(JSON.stringify(requestBody));
       var response = request.execute();
       var httpStatus = response.getStatusCode();
