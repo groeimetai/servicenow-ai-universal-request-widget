@@ -32,52 +32,9 @@ ai.widget.language.default = auto
 ai.widget.debug = false
 ```
 
-### 2️⃣ Create REST Message for OpenAI
+### 2️⃣ Import the Widget
 
-#### A. Create REST Message
-
-1. Go to **System Web Services > Outbound > REST Message**
-2. Click **New**
-3. Fill in:
-   - **Name**: `OpenAI Chat`
-   - **Endpoint**: `https://api.openai.com/v1/chat/completions`
-   - **Description**: `OpenAI Chat Completion API for AI Widget`
-4. Click **Submit**
-
-#### B. Create HTTP Method
-
-1. In the REST Message, click **New** in HTTP Methods
-2. Configure:
-   - **Name**: `Create Chat Completion`
-   - **HTTP Method**: `POST`
-   - **Endpoint**: `https://api.openai.com/v1/chat/completions`
-
-#### C. Add HTTP Headers
-
-In the HTTP Method, add these headers:
-
-| Header | Value |
-|--------|-------|
-| Authorization | Bearer ${ai.openai.api.key} |
-| Content-Type | application/json |
-
-#### D. Add Variables
-
-Create these variables in the HTTP Method:
-
-| Variable | Type | Test Value |
-|----------|------|------------|
-| messages | String | [{"role":"user","content":"Hello"}] |
-| model | String | gpt-5-nano |
-| temperature | String | 0.3 |
-| max_tokens | String | 500 |
-
-#### E. Test the Connection
-
-1. Click **Test**
-2. You should receive a 200 response with AI-generated content
-
-### 3️⃣ Import the Widget
+> **Note:** The widget contains all OpenAI integration code built-in. No REST Message configuration needed!
 
 #### Method A: Manual Import
 
@@ -103,7 +60,7 @@ Create these variables in the HTTP Method:
 3. Import the XML file
 4. Preview and Commit
 
-### 4️⃣ Add Widget to Portal
+### 3️⃣ Add Widget to Portal
 
 1. Navigate to **Service Portal > Pages**
 2. Select your target page (e.g., `index` or `catalog`)
@@ -123,7 +80,7 @@ Create these variables in the HTTP Method:
 
 6. Save the page
 
-### 5️⃣ Configure Knowledge Base (Optional)
+### 4️⃣ Configure Knowledge Base (Optional)
 
 For optimal performance:
 
@@ -136,7 +93,7 @@ For optimal performance:
    - Go to **Knowledge > Administration > Knowledge Bases**
    - Create new knowledge base for AI-searchable content
 
-### 6️⃣ Set User Permissions
+### 5️⃣ Set User Permissions
 
 Grant these roles as needed:
 
@@ -146,7 +103,7 @@ Grant these roles as needed:
 | `knowledge.user` | Read knowledge articles |
 | `sp_user` | Access Service Portal |
 
-### 7️⃣ Test the Installation
+### 6️⃣ Test the Installation
 
 1. Open Service Portal as end user
 2. Navigate to page with widget

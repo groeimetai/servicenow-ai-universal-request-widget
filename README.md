@@ -60,32 +60,7 @@ ai.widget.selfservice.enabled = true
 ai.widget.language.default = auto
 ```
 
-### Step 2: Create REST Message
-
-1. Navigate to **System Web Services > Outbound > REST Message**
-2. Create new REST Message:
-   - **Name**: `OpenAI Chat`
-   - **Endpoint**: `https://api.openai.com/v1/chat/completions`
-   - **Authentication**: Use basic auth or headers
-
-3. Create HTTP Method:
-   - **Name**: `Create Chat Completion`
-   - **HTTP Method**: `POST`
-   - **Endpoint**: `https://api.openai.com/v1/chat/completions`
-
-4. Add HTTP Request Headers:
-   ```
-   Authorization: Bearer ${ai.openai.api.key}
-   Content-Type: application/json
-   ```
-
-5. Add Variables:
-   - `messages` (String)
-   - `model` (String)
-   - `temperature` (String)
-   - `max_tokens` (String)
-
-### Step 3: Import Widget
+### Step 2: Import Widget
 
 1. Navigate to **Service Portal > Widgets**
 2. Click **New** to create widget
@@ -100,7 +75,7 @@ ai.widget.language.default = auto
    - **Server Script**: Copy from `widget/src/server.js`
    - **CSS**: Copy from `widget/css/styles.css`
 
-### Step 4: Add to Portal Page
+### Step 3: Add to Portal Page
 
 1. Navigate to your Service Portal page
 2. Open in Page Designer
@@ -128,18 +103,24 @@ Configure these in the widget instance:
 
 ```mermaid
 graph TD
-    A[User Enters Request] --> B{AI Analysis}
-    B --> C[Search Knowledge Base]
-    C --> D{Classification}
-    D -->|Simple Question| E[Provide Direct Answer]
-    D -->|Complex Issue| F[Show Self-Service Steps]
-    E --> G[Option to Create Ticket]
-    F --> H{Issue Resolved?}
-    H -->|Yes| I[Close Without Ticket]
-    H -->|No| J[Generate Smart Questions]
-    J --> K[Collect Additional Info]
-    K --> L[Create Appropriate Record]
-    L --> M[Show Confirmation]
+    A[User Enters Request] --> B[Search Knowledge Base]
+    B --> C{Knowledge Found?}
+    C -->|Yes| D[Use KB Articles for Answer]
+    C -->|No| E[Generate AI Answer]
+    D --> F[AI Enriched Response with KB]
+    E --> F
+    F --> G{User Satisfied?}
+    G -->|Yes| H[Close Without Ticket]
+    G -->|No| I{Request Type?}
+    I -->|Simple Question| J[Provide Additional Help]
+    I -->|Complex Issue| K[Generate Smart Questions]
+    J --> L[Option to Create Ticket]
+    K --> M[Collect Additional Info]
+    M --> N[Create Appropriate Record]
+    N --> O[Show Confirmation]
+    L --> P{Create Ticket?}
+    P -->|Yes| M
+    P -->|No| H
 ```
 
 ### Language Detection
