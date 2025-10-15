@@ -1,0 +1,437 @@
+<div class="snow-flow-chatbot">
+  <div class="chat-header">
+    <div class="header-left">
+      <span class="chat-logo">🤖</span>
+      <div class="header-info">
+        <span class="chat-title">AI Assistant</span>
+        <span class="chat-subtitle">Powered by {{data.selectedModel}}</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="status-indicator" ng-class="{'online': data.connected}"></span>
+      <button class="header-btn" ng-click="toggleSettings()" title="Settings">
+        <i class="fa fa-cog"></i>
+      </button>
+    </div>
+  </div>
+<div class="suggested-actions" ng-if="data.suggestedActions && data.suggestedActions.length > 0">
+    <div class="actions-scroll">
+      <button ng-repeat="action in data.suggestedActions" 
+              ng-click="handleSuggestedAction(action)" 
+              class="suggested-action-btn">
+        <span ng-if="action.icon" class="action-icon">{{action.icon}}</span>
+        <span>{{action.text}}</span>
+      </button>
+    </div>
+  </div>
+<div class="chat-messages" id="chatMessages">
+<div ng-if="data.messages.length === 0" class="welcome-container">
+      <div class="welcome-icon">👋</div>
+      <h3 class="welcome-title">Hallo! Ik ben je AI Assistant</h3>
+      <p class="welcome-text">Ik kan je helpen met:</p>
+      <div class="welcome-cards">
+        <div class="welcome-card" ng-click="quickAction('Ik wil een laptop bestellen')">
+          <span class="card-icon">💻</span>
+          <span class="card-text">Apparatuur Bestellen</span>
+        </div>
+        <div class="welcome-card" ng-click="quickAction('Ik heb een IT probleem')">
+          <span class="card-icon">🔧</span>
+          <span class="card-text">IT Support</span>
+        </div>
+        <div class="welcome-card" ng-click="quickAction('Zoek kennisartikelen')">
+          <span class="card-icon">📚</span>
+          <span class="card-text">Kennis Zoeken</span>
+        </div>
+        <div class="welcome-card" ng-click="quickAction('Bekijk mijn requests')">
+          <span class="card-icon">📋</span>
+          <span class="card-text">Mijn Requests</span>
+        </div>
+      </div>
+    </div>
+<div ng-repeat="msg in data.messages track by $index" class="message-wrapper" ng-class="msg.type">
+      <div class="message" ng-class="msg.type">
+        <div class="message-avatar" ng-if="msg.type === 'ai'">
+          <span class="avatar-icon">🤖</span>
+        </div>
+        <div class="message-content">
+<div class="message-bubble" ng-if="!msg.richContent">
+            <div class="message-text" ng-if="msg.type === 'user'">{{msg.text}}</div>
+            <div class="message-text" ng-if="msg.type === 'ai'" ng-bind-html="trustAsHtml(msg.text)"></div>
+          </div>
+<div ng-if="msg.richContent" class="rich-content">
+<div ng-if="msg.richContent.type === 'catalog_items'" class="catalog-carousel">
+              <h4 class="carousel-title">{{msg.richContent.title}}</h4>
+              <div class="carousel-container">
+                <div class="carousel-track">
+                  <div ng-repeat="item in msg.richContent.items" class="catalog-card">
+                    <div class="card-image">
+                      <img ng-src="{{item.image || '/default-item.png'}}" alt="{{item.name}}" />
+                    </div>
+                    <div class="card-content">
+                      <h5 class="card-title">{{item.name}}</h5>
+                      <p class="card-description">{{item.description}}</p>
+                      <div class="card-footer">
+                        <span class="card-price">{{item.price}}</span>
+                        <button class="card-btn" ng-click="selectCatalogItem(item)">
+                          Selecteer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+<div ng-if="msg.richContent.type === 'form'" class="form-card">
+              <h4 class="form-title">{{msg.richContent.title}}</h4>
+              <div class="form-fields">
+                <div ng-repeat="field in msg.richContent.fields" class="form-field">
+                  <label class="field-label">
+                    {{field.label}}
+                    <span ng-if="field.required" class="required">*</span>
+                  </label>
+<input ng-if="field.type === 'text'" 
+                         type="text" 
+                         ng-model="formData[field.name]"
+                         placeholder="{{field.placeholder}}"
+                         class="field-input" />
+<textarea ng-if="field.type === 'textarea'"
+                            ng-model="formData[field.name]"
+                            placeholder="{{field.placeholder}}"
+                            class="field-textarea"
+                            rows="4"></textarea>
+<select ng-if="field.type === 'select'"
+                          ng-model="formData[field.name]"
+                          class="field-select">
+                    <option value="">{{field.placeholder || 'Selecteer een optie'}}</option>
+                    <option ng-repeat="opt in field.options" value="{{opt.value}}">
+                      {{opt.label}}
+                    </option>
+                  </select>
+<input ng-if="field.type === 'date'" 
+                         type="date" 
+                         ng-model="formData[field.name]"
+                         placeholder="{{field.placeholder}}"
+                         class="field-input" />
+<input ng-if="field.type === 'datetime-local'" 
+                         type="datetime-local" 
+                         ng-model="formData[field.name]"
+                         placeholder="{{field.placeholder}}"
+                         class="field-input" />
+<input ng-if="field.type === 'password'" 
+                         type="password" 
+                         ng-model="formData[field.name]"
+                         placeholder="{{field.placeholder}}"
+                         class="field-input" />
+<input ng-if="field.type !== 'text' && field.type !== 'date' && field.type !== 'datetime-local' && field.type !== 'password' && field.type !== 'select' && field.type !== 'textarea'" 
+                         type="text" 
+                         ng-model="formData[field.name]"
+                         placeholder="{{field.placeholder}}"
+                         class="field-input" />
+                </div>
+              </div>
+              <div class="form-actions">
+                <button class="btn-primary" ng-click="submitForm(msg.richContent.formId)">
+                  {{msg.richContent.submitText || 'Verstuur'}}
+                </button>
+                <button class="btn-secondary" ng-click="cancelForm()">
+                  Annuleer
+                </button>
+              </div>
+            </div>
+<div ng-if="msg.richContent.type === 'info'" class="info-card">
+              <div class="info-header" ng-style="{'background-color': msg.richContent.color || '#000'}">
+                <span class="info-icon">{{msg.richContent.icon || 'ℹ️'}}</span>
+                <h4 class="info-title">{{msg.richContent.title}}</h4>
+              </div>
+              <div class="info-body">
+                <div ng-bind-html="trustAsHtml(msg.richContent.content)"></div>
+                <div ng-if="msg.richContent.actions" class="info-actions">
+                  <button ng-repeat="action in msg.richContent.actions"
+                          ng-click="handleAction(action)"
+                          class="info-action-btn"
+                          ng-class="action.style">
+                    {{action.label}}
+                  </button>
+                </div>
+              </div>
+            </div>
+<div ng-if="msg.richContent.type === 'quick_replies'" class="quick-replies">
+              <p class="quick-reply-text">{{msg.richContent.text}}</p>
+              <div class="quick-reply-buttons">
+                <button ng-repeat="reply in msg.richContent.replies"
+                        ng-click="sendQuickReply(reply)"
+                        class="quick-reply-btn">
+                  <span ng-if="reply.icon" class="reply-icon">{{reply.icon}}</span>
+                  {{reply.text}}
+                </button>
+              </div>
+            </div>
+<div ng-if="msg.richContent.type === 'status'" class="status-card">
+              <div class="status-header">
+                <span class="status-icon" ng-class="msg.richContent.status">{{msg.richContent.statusIcon}}</span>
+                <h4 class="status-title">{{msg.richContent.title}}</h4>
+              </div>
+              <div class="status-body">
+                <p>{{msg.richContent.message}}</p>
+                <div ng-if="msg.richContent.details" class="status-details">
+                  <div ng-repeat="detail in msg.richContent.details" class="detail-row">
+                    <span class="detail-label">{{detail.label}}:</span>
+                    <span class="detail-value">{{detail.value}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+<div ng-if="msg.richContent.type === 'knowledge_results'" class="knowledge-results-advanced">
+              <div class="knowledge-header">
+                <h4 class="knowledge-title">{{msg.richContent.title}}</h4>
+                <p class="knowledge-subtitle">{{msg.richContent.subtitle}}</p>
+                <div class="search-info">
+                  <span class="search-query">"{{msg.richContent.original_query}}"</span>
+                  <span class="result-count">{{msg.richContent.results.length}} resultaten</span>
+                </div>
+              </div>
+              <div class="knowledge-results">
+                <div ng-repeat="result in msg.richContent.results" class="knowledge-result-card">
+                  <div class="result-header">
+                    <h5 class="result-title">{{result.title}}</h5>
+                    <div class="confidence-badge" ng-class="'confidence-' + (result.confidence >= 80 ? 'high' : result.confidence >= 60 ? 'medium' : 'low')">
+                      <span class="confidence-score">{{result.confidence}}%</span>
+                      <span class="confidence-label">{{result.confidence_label}}</span>
+                    </div>
+                  </div>
+                  <div class="result-content">
+                    <p class="result-snippet">{{result.snippet}}</p>
+                    <span class="result-category">📂 {{result.category}}</span>
+                  </div>
+                  <div class="result-actions">
+                    <button ng-repeat="action in result.actions" 
+                            ng-click="handleAction(action)"
+                            class="result-action-btn">
+                      {{action.label}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div ng-if="msg.richContent.type === 'no_results_advanced'" class="no-results-advanced">
+              <div class="no-results-header">
+                <h4 class="no-results-title">{{msg.richContent.title}}</h4>
+                <p class="no-results-subtitle">{{msg.richContent.subtitle}}</p>
+                <div class="failed-query">
+                  <span class="query-label">Zoekopdracht:</span>
+                  <span class="query-text">"{{msg.richContent.original_query}}"</span>
+                </div>
+              </div>
+              <div class="smart-suggestions">
+                <h5>💡 Slimme suggesties:</h5>
+                <div class="suggestion-list">
+                  <div ng-repeat="suggestion in msg.richContent.suggestions" class="suggestion-item">
+                    <span class="suggestion-icon">🔍</span>
+                    <span class="suggestion-text">{{suggestion}}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="no-results-actions">
+                <button ng-repeat="action in msg.richContent.actions" 
+                        ng-click="handleAction(action)"
+                        class="no-results-action-btn">
+                  <span class="action-icon">{{action.icon}}</span>
+                  {{action.label}}
+                </button>
+              </div>
+            </div>
+            <div ng-if="msg.richContent.type === 'incident_created_advanced'" class="incident-created-advanced">
+              <div class="incident-header">
+                <h4 class="incident-title">{{msg.richContent.title}}</h4>
+                <p class="incident-subtitle">{{msg.richContent.subtitle}}</p>
+                <div class="incident-number">
+                  <span class="number-label">Incident:</span>
+                  <span class="number-value">{{msg.richContent.incident_number}}</span>
+                </div>
+              </div>
+              <div class="incident-details">
+                <div ng-repeat="detail in msg.richContent.details" class="incident-detail-row">
+                  <span class="detail-icon">{{detail.icon}}</span>
+                  <span class="detail-label">{{detail.label}}:</span>
+                  <span class="detail-value">{{detail.value}}</span>
+                </div>
+              </div>
+              <div class="incident-actions">
+                <button ng-repeat="action in msg.richContent.actions" 
+                        ng-click="handleAction(action)"
+                        class="incident-action-btn">
+                  {{action.label}}
+                </button>
+              </div>
+            </div>
+            <div ng-if="msg.richContent.type === 'duplicate_warning'" class="duplicate-warning">
+              <div class="warning-header">
+                <h4 class="warning-title">{{msg.richContent.title}}</h4>
+                <p class="warning-subtitle">{{msg.richContent.subtitle}}</p>
+              </div>
+              <div class="similar-incidents">
+                <h5>🔍 Vergelijkbare openstaande incidents:</h5>
+                <div ng-repeat="incident in msg.richContent.similar_incidents" class="similar-incident-card">
+                  <div class="similar-incident-header">
+                    <span class="incident-number">{{incident.number}}</span>
+                    <span class="similarity-score">{{incident.similarity_score}} gelijkenis</span>
+                  </div>
+                  <div class="similar-incident-content">
+                    <p class="incident-description">{{incident.description}}</p>
+                    <span class="incident-status">Status: {{incident.status}}</span>
+                  </div>
+                  <div class="similar-incident-actions">
+                    <button ng-repeat="action in incident.actions" 
+                            ng-click="handleAction(action)"
+                            class="similar-action-btn">
+                      {{action.label}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="duplicate-actions">
+                <button ng-repeat="action in msg.richContent.actions" 
+                        ng-click="handleAction(action)"
+                        class="duplicate-action-btn"
+                        ng-class="action.style">
+                  {{action.label}}
+                </button>
+              </div>
+            </div>
+            <div ng-if="msg.richContent.type === 'proactive_assistance'" class="proactive-assistance">
+              <div class="proactive-header">
+                <h4 class="proactive-title">
+                  <span class="context-icon">{{msg.richContent.context_icon}}</span>
+                  {{msg.richContent.title}}
+                </h4>
+                <p class="proactive-subtitle">{{msg.richContent.subtitle}}</p>
+              </div>
+              <div class="proactive-suggestions">
+                <div ng-repeat="suggestion in msg.richContent.suggestions" class="suggestion-card">
+                  <div class="suggestion-header">
+                    <span class="suggestion-icon">{{suggestion.icon}}</span>
+                    <h5 class="suggestion-title">{{suggestion.title}}</h5>
+                    <div class="suggestion-priority" ng-class="'priority-' + suggestion.priority">
+                      {{suggestion.priority}}
+                    </div>
+                  </div>
+                  <div class="suggestion-content">
+                    <p class="suggestion-description">{{suggestion.description}}</p>
+                    <div class="suggestion-confidence">
+                      <span class="confidence-label">Relevantie:</span>
+                      <span class="confidence-value">{{suggestion.confidence}}%</span>
+                    </div>
+                  </div>
+                  <div class="suggestion-actions">
+                    <button ng-repeat="action in suggestion.actions" 
+                            ng-click="handleAction(action)"
+                            class="suggestion-action-btn">
+                      {{action.label}}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="proactive-general-actions">
+                <h5>🛠️ Algemene acties:</h5>
+                <button ng-repeat="action in msg.richContent.general_actions" 
+                        ng-click="handleAction(action)"
+                        class="general-action-btn">
+                  <span class="action-icon">{{action.icon}}</span>
+                  {{action.label}}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="message-time">{{msg.timestamp}}</div>
+        </div>
+        <div class="message-avatar" ng-if="msg.type === 'user'">
+          <span class="avatar-icon">👤</span>
+        </div>
+      </div>
+    </div>
+<div ng-if="data.loading" class="message-wrapper ai">
+      <div class="message ai">
+        <div class="message-avatar">
+          <span class="avatar-icon">🤖</span>
+        </div>
+        <div class="message-content">
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="chat-input-container">
+<div ng-if="data.activeContext" class="context-bar">
+      <span class="context-icon">{{data.activeContext.icon}}</span>
+      <span class="context-text">{{data.activeContext.text}}</span>
+      <button class="context-close" ng-click="clearContext()">&times;</button>
+    </div>
+    <div class="input-row">
+      <button class="attach-btn" ng-click="toggleAttachMenu()" title="Bijlagen">
+        <i class="fa fa-paperclip"></i>
+      </button>
+      <textarea ng-model="data.userInput" 
+                ng-keypress="handleKeyPress($event)"
+                placeholder="{{data.inputPlaceholder || 'Type je vraag hier...'}}"
+                ng-disabled="data.loading"
+                class="chat-textarea"
+                auto-resize></textarea>
+      <button ng-click="sendMessage()" 
+              ng-disabled="!data.userInput || data.loading"
+              class="send-btn"
+              ng-class="{'pulse': data.userInput && !data.loading}">
+        <i class="fa fa-paper-plane"></i>
+      </button>
+    </div>
+<div class="chat-footer">
+      <div class="footer-left">
+        <button class="footer-btn" ng-click="clearChat()" title="Clear Chat">
+          <i class="fa fa-trash"></i>
+        </button>
+        <button class="footer-btn" ng-click="exportChat()" title="Export Chat">
+          <i class="fa fa-download"></i>
+        </button>
+      </div>
+      <div class="footer-center">
+        <span class="token-counter" ng-if="data.tokenUsage">
+          <i class="fa fa-coins"></i> {{data.tokenUsage}} tokens
+        </span>
+      </div>
+      <div class="footer-right">
+        <select ng-model="data.selectedModel" 
+                ng-change="changeModel()" 
+                class="model-select">
+          <option value="gpt-5-nano-2025-08-07">GPT-5 Nano</option>
+          <option value="gpt-5">GPT-5</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-4">GPT-4</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        </select>
+      </div>
+    </div>
+  </div>
+<div class="settings-panel" ng-show="showSettings">
+    <div class="settings-header">
+      <h4>Instellingen</h4>
+      <button ng-click="toggleSettings()" class="close-btn">&times;</button>
+    </div>
+    <div class="settings-body">
+      <div class="setting-item">
+        <label>Taal</label>
+        <select ng-model="data.language" ng-change="updateLanguage()">
+          <option value="nl">Nederlands</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>Theme</label>
+        <select ng-model="data.theme" ng-change="updateTheme()">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>

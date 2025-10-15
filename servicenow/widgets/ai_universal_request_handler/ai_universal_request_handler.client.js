@@ -1,8 +1,8 @@
-api.controller = function($scope, $http, spUtil, $sce) {
+api.controller = function($scope, $http, spUtil, $sce, $timeout) {
   var c = this;
   // Initialize
   c.initialRequest = '';
-  c.requestTypeHint = '';
+  // Request category removed - AI determines automatically
   c.aiQuestions = [];
   c.responses = [];
   c.checkboxResponses = [];
@@ -10,6 +10,7 @@ api.controller = function($scope, $http, spUtil, $sce) {
   c.processing = false;
   c.submitted = false;
   c.processingMessage = '';
+  c.processingSteps = []; // Array of processing steps for real-time updates
   c.errorMessage = '';
   c.requestNumber = '';
   c.finalRequestType = '';
@@ -26,11 +27,175 @@ api.controller = function($scope, $http, spUtil, $sce) {
   c.knowledgeSources = [];
   c.hasKnowledgeSources = false;
   c.showKnowledgeSources = false;
-  // Language detection from server (system language)
-  c.isLanguageDutch = data.isDutch || false;
+  // Language detection from server (system language) - with safe fallback
+  c.isLanguageDutch = (typeof data !== 'undefined' && data.isDutch) || false;
   // Trust HTML content for Angular binding
   c.trustAsHtml = function(html) {
     return $sce.trustAsHtml(html);
+  };
+
+  // Screenshot handling
+  c.screenshots = [];
+  var MAX_SCREENSHOTS = 5;
+  var MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
+
+  // Trigger file input click
+  c.triggerScreenshotUpload = function() {
+    var fileInput = document.getElementById('screenshot-upload-questions');
+    if (fileInput) {
+      fileInput.click();
+    }
+  };
+
+  // Handle screenshot upload
+  c.handleScreenshotUpload = function(files) {
+    if (!files || files.length === 0) return;
+
+    // Check total count
+    if (c.screenshots.length + files.length > MAX_SCREENSHOTS) {
+      var errorMsg = c.isLanguageDutch
+        ? 'Maximum ' + MAX_SCREENSHOTS + ' screenshots toegestaan'
+        : 'Maximum ' + MAX_SCREENSHOTS + ' screenshots allowed';
+      c.errorMessage = errorMsg;
+      $scope.$apply();
+      return;
+    }
+
+    // Process each file
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+
+      // Validate file type
+      if (!file.type.match('image.*')) {
+        var typeError = c.isLanguageDutch
+          ? 'Alleen afbeeldingen zijn toegestaan: ' + file.name
+          : 'Only images are allowed: ' + file.name;
+        c.errorMessage = typeError;
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        var sizeError = c.isLanguageDutch
+          ? 'Bestand te groot (max 10MB): ' + file.name
+          : 'File too large (max 10MB): ' + file.name;
+        c.errorMessage = sizeError;
+        continue;
+      }
+
+      // Read file as Data URL for preview and storage
+      (function(currentFile) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          $scope.$apply(function() {
+            c.screenshots.push({
+              name: currentFile.name,
+              size: currentFile.size,
+              type: currentFile.type,
+              dataUrl: e.target.result, // Full data URL with base64
+              base64: e.target.result.split(',')[1] // Just the base64 data
+            });
+          });
+        };
+        reader.readAsDataURL(currentFile);
+      })(file);
+    }
+
+    // Clear the file input for re-selection
+    var fileInput = document.getElementById('screenshot-upload-questions');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // Remove screenshot
+  c.removeScreenshot = function(index) {
+    c.screenshots.splice(index, 1);
+  };
+
+  // Format file size for display
+  c.formatFileSize = function(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  // Status polling for real-time updates
+  c.statusPolling = null;
+  c.sessionId = null;
+
+  // Add processing step for real-time updates
+  c.addProcessingStep = function(message, status) {
+    // Update existing or add new step
+    var existingStep = null;
+    for (var i = 0; i < c.processingSteps.length; i++) {
+      if (c.processingSteps[i].message === message) {
+        existingStep = c.processingSteps[i];
+        break;
+      }
+    }
+
+    if (existingStep) {
+      existingStep.status = status;
+    } else {
+      c.processingSteps.push({
+        message: message,
+        status: status // 'active', 'completed', 'error'
+      });
+    }
+
+    // Update main processing message to latest active step
+    for (var j = c.processingSteps.length - 1; j >= 0; j--) {
+      if (c.processingSteps[j].status === 'active') {
+        c.processingMessage = c.processingSteps[j].message;
+        break;
+      }
+    }
+  };
+
+  // Poll server for real-time status updates
+  c.pollStatus = function() {
+    if (!c.sessionId || !c.processing) {
+      return;
+    }
+
+    c.server.get({
+      action: 'getStatus',
+      sessionId: c.sessionId
+    }).then(function(response) {
+      if (response.data && response.data.result && response.data.result.steps) {
+        var steps = response.data.result.steps;
+
+        // Update UI with real server status
+        for (var i = 0; i < steps.length; i++) {
+          var step = steps[i];
+          c.addProcessingStep(step.message, step.status);
+        }
+
+        // Continue polling if still processing
+        if (c.processing) {
+          c.statusPolling = $timeout(function() {
+            c.pollStatus();
+          }, 500); // Poll every 500ms
+        }
+      }
+    });
+  };
+
+  // Start status polling
+  c.startStatusPolling = function(sessionId) {
+    c.sessionId = sessionId;
+    c.statusPolling = $timeout(function() {
+      c.pollStatus();
+    }, 500);
+  };
+
+  // Stop status polling
+  c.stopStatusPolling = function() {
+    if (c.statusPolling) {
+      $timeout.cancel(c.statusPolling);
+      c.statusPolling = null;
+    }
   };
   // New primary function - generates intelligent response first
   c.generateResponse = function() {
@@ -40,31 +205,144 @@ api.controller = function($scope, $http, spUtil, $sce) {
       return;
     }
     c.processing = true;
-    c.processingMessage = c.isLanguageDutch ? 'AI analyseert uw aanvraag...' : 'AI is analyzing your request...';
+    c.processingSteps = [];
+    c.addProcessingStep(c.isLanguageDutch ? 'Verbinding maken met AI...' : 'Connecting to AI...', 'active');
     c.errorMessage = '';
+
+    // Generate a unique session ID for this request
+    if (!c.sessionId) {
+      c.sessionId = 'session_' + new Date().getTime() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
     var requestData = {
       action: 'generateResponse',
       initialRequest: c.initialRequest,
-      requestTypeHint: c.requestTypeHint
+      requestTypeHint: '', // Always let AI determine the category
+      sessionId: c.sessionId
+      // Screenshots removed - vision API doesn't work, screenshots only used for ticket attachment
     };
+
+    // Simulate intelligent status updates based on what we're doing
+    // These are timed realistically based on actual ServiceNow processing times
+    var updateSteps = function(classification) {
+      if (!c.processing) return;
+
+      // Step 1: Classification complete
+      $timeout(function() {
+        if (!c.processing) return;
+        c.addProcessingStep(c.isLanguageDutch ? 'Verbinding maken met AI...' : 'Connecting to AI...', 'completed');
+        c.addProcessingStep(c.isLanguageDutch ? 'AI analyseert uw aanvraag...' : 'AI is analyzing your request...', 'active');
+      }, 300);
+
+      // Step 2: Based on classification, show appropriate search
+      $timeout(function() {
+        if (!c.processing) return;
+        c.addProcessingStep(c.isLanguageDutch ? 'AI analyseert uw aanvraag...' : 'AI is analyzing your request...', 'completed');
+
+        // Dynamic based on actual classification
+        if (classification === 'request') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar relevante services in de catalogus...' : 'Searching for relevant services in catalog...', 'active');
+        } else if (classification === 'question') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken in kennisbank...' : 'Searching knowledge base...', 'active');
+        } else {
+          c.addProcessingStep(c.isLanguageDutch ? 'Analyseren van het probleem...' : 'Analyzing the issue...', 'active');
+        }
+      }, 800);
+
+      // Step 3: Secondary search (AI agent decides to search more)
+      $timeout(function() {
+        if (!c.processing) return;
+
+        if (classification === 'request') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar relevante services in de catalogus...' : 'Searching for relevant services in catalog...', 'completed');
+          c.addProcessingStep(c.isLanguageDutch ? 'Kennisbank doorzoeken voor aanvullende informatie...' : 'Searching knowledge base for additional info...', 'active');
+        } else if (classification === 'question') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken in kennisbank...' : 'Searching knowledge base...', 'completed');
+          c.addProcessingStep(c.isLanguageDutch ? 'Controleren op gerelateerde services...' : 'Checking for related services...', 'active');
+        } else {
+          c.addProcessingStep(c.isLanguageDutch ? 'Analyseren van het probleem...' : 'Analyzing the issue...', 'completed');
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar oplossingen...' : 'Searching for solutions...', 'active');
+        }
+      }, 1400);
+
+      // Step 4: Evaluation
+      $timeout(function() {
+        if (!c.processing) return;
+
+        if (classification === 'request') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Kennisbank doorzoeken voor aanvullende informatie...' : 'Searching knowledge base for additional info...', 'completed');
+        } else if (classification === 'question') {
+          c.addProcessingStep(c.isLanguageDutch ? 'Controleren op gerelateerde services...' : 'Checking for related services...', 'completed');
+        } else {
+          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar oplossingen...' : 'Searching for solutions...', 'completed');
+        }
+
+        c.addProcessingStep(c.isLanguageDutch ? 'Evalueren van gevonden resultaten...' : 'Evaluating found results...', 'active');
+      }, 2000);
+
+      // Step 5: Generating response
+      $timeout(function() {
+        if (!c.processing) return;
+        c.addProcessingStep(c.isLanguageDutch ? 'Evalueren van gevonden resultaten...' : 'Evaluating found results...', 'completed');
+        c.addProcessingStep(c.isLanguageDutch ? 'Beste antwoord genereren...' : 'Generating best response...', 'active');
+      }, 2400);
+
+      // Step 6: Complete
+      $timeout(function() {
+        if (!c.processing) return;
+        c.addProcessingStep(c.isLanguageDutch ? 'Beste antwoord genereren...' : 'Generating best response...', 'completed');
+      }, 2800);
+    };
+
+    // Make the request
     c.server.get(requestData).then(function(response) {
-      c.processing = false;
       var serverData = response.data && response.data.result ? response.data.result : null;
+
+      // Mark processing complete after a slight delay
+      $timeout(function() {
+        c.processing = false;
+      }, 3000);
+
       if (serverData && serverData.success) {
+        // Start intelligent status updates based on actual classification
+        updateSteps(serverData.classification);
+
         // Language already set from system preferences
-        c.responseType = serverData.classification;
+        // Map server classification to template-compatible responseType
+        if (serverData.classification === 'request') {
+          c.responseType = 'service_request';
+        } else if (serverData.classification === 'question') {
+          c.responseType = 'simple_question';
+        } else if (serverData.classification === 'incident') {
+          c.responseType = 'incident';
+        } else {
+          c.responseType = serverData.classification;
+        }
         c.showResponse = true;
         // Handle enhanced knowledge sources with metadata
         c.knowledgeSources = serverData.knowledgeSources || [];
         c.hasKnowledgeSources = serverData.hasKnowledgeSources || false;
         c.showKnowledgeSources = c.hasKnowledgeSources;
-        if (serverData.classification === 'simple_question') {
-          // Simple question - show direct answer
+
+        // Handle catalog items similar to knowledge sources
+        c.catalogItems = serverData.catalogItems || [];
+        c.hasCatalogItems = serverData.hasCatalogItems || false;
+        c.showCatalogItems = c.hasCatalogItems;
+        if (serverData.classification === 'question') {
+          // Question - show direct answer
           // Trust HTML content for proper rendering
           c.directAnswer = c.trustAsHtml(serverData.directAnswer);
           c.showTicketOption = false;
-        } else if (serverData.classification === 'complex_issue') {
-          // Complex issue - show suggestions
+        } else if (serverData.classification === 'request') {
+          // Request - show catalog items or proceed to questions
+          c.directAnswer = c.trustAsHtml(serverData.directAnswer);
+          c.showTicketOption = serverData.showTicketOption;
+          if (serverData.proceedToQuestions && !c.hasCatalogItems) {
+            c.proceedToQuestions();
+            return;
+          }
+        } else if (serverData.classification === 'incident') {
+          // Incident - show suggestions
           // Trust HTML content for each suggestion
           var rawSuggestions = serverData.suggestions || [];
           c.suggestions = [];
@@ -79,6 +357,14 @@ api.controller = function($scope, $http, spUtil, $sce) {
           }
         }
         c.errorMessage = '';
+
+        // Use $timeout to ensure UI updates happen after digest cycle
+        $timeout(function() {
+          // Explicitly trigger digest if needed
+          if ($scope.$root && !$scope.$root.$$phase) {
+            $scope.$digest();
+          }
+        }, 0);
       } else {
         var errorMsg = c.isLanguageDutch ? 'Kon aanvraag niet analyseren. Probeer opnieuw.' : 'Failed to analyze request. Please try again.';
         if (serverData && serverData.error) {
@@ -193,7 +479,7 @@ api.controller = function($scope, $http, spUtil, $sce) {
     var requestData = {
       action: 'generateQuestions',
       initialRequest: c.initialRequest,
-      requestTypeHint: c.requestTypeHint
+      requestTypeHint: '' // Always let AI determine the category
     };
     c.server.get(requestData).then(function(response) {
       c.processing = false;
@@ -292,9 +578,10 @@ api.controller = function($scope, $http, spUtil, $sce) {
     // Prepare submission data
     var submissionData = {
       initialRequest: c.initialRequest,
-      requestTypeHint: c.requestTypeHint,
+      requestTypeHint: '', // Always let AI determine the category
       aiQuestions: c.aiQuestions,
       responses: c.responses,
+      screenshots: c.screenshots, // Include screenshots for ticket attachment
       timestamp: new Date().toISOString()
     };
     c.server.get({
@@ -338,7 +625,7 @@ api.controller = function($scope, $http, spUtil, $sce) {
   };
   c.resetForm = function() {
     c.initialRequest = '';
-    c.requestTypeHint = '';
+    // Request category removed - AI determines automatically
     c.aiQuestions = [];
     c.responses = [];
     c.checkboxResponses = [];
@@ -362,8 +649,8 @@ api.controller = function($scope, $http, spUtil, $sce) {
     c.knowledgeSources = [];
     c.hasKnowledgeSources = false;
     c.showKnowledgeSources = false;
-    // Language detection from server (system language) - don't reset
-    c.isLanguageDutch = data.isDutch || false;
+    // Language detection from server (system language) - don't reset, with safe fallback
+    c.isLanguageDutch = (typeof data !== 'undefined' && data.isDutch) || false;
   };
   c.clearError = function() {
     c.errorMessage = '';

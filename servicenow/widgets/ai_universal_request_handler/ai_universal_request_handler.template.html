@@ -16,45 +16,16 @@
                     <span ng-if="!data.isDutch">What can we help you with today?</span>
                     <span ng-if="data.isDutch">Waarmee kunnen we u vandaag helpen?</span>
                 </label>
-                <textarea 
-                    class="form-control" 
-                    ng-model="c.initialRequest" 
-                    rows="4" 
+                <textarea
+                    class="form-control"
+                    ng-model="c.initialRequest"
+                    rows="4"
                     placeholder="{{data.isDutch ? 'Beschrijf uw aanvraag in detail...' : 'Describe your request in detail...'}}"
                     ng-disabled="c.processing">
                 </textarea>
             </div>
-<div class="form-group">
-                <label class="form-label">
-                    <i class="fa fa-tag"></i> 
-                    <span ng-if="!data.isDutch">Request Category (Optional)</span>
-                    <span ng-if="data.isDutch">Aanvraag Categorie (Optioneel)</span>
-                </label>
-                <select 
-                    class="form-control" 
-                    ng-model="c.requestTypeHint"
-                    ng-disabled="c.processing">
-                    <option value="" ng-if="!data.isDutch">-- Let AI determine --</option>
-                    <option value="" ng-if="data.isDutch">-- Laat AI bepalen --</option>
-                    <option value="incident" ng-if="!data.isDutch">Incident / Issue</option>
-                    <option value="incident" ng-if="data.isDutch">Incident / Probleem</option>
-                    <option value="request" ng-if="!data.isDutch">Service Request</option>
-                    <option value="request" ng-if="data.isDutch">Service Aanvraag</option>
-                    <option value="change" ng-if="!data.isDutch">Change Request</option>
-                    <option value="change" ng-if="data.isDutch">Wijzigingsverzoek</option>
-                    <option value="access" ng-if="!data.isDutch">Access Request</option>
-                    <option value="access" ng-if="data.isDutch">Toegang Aanvraag</option>
-                    <option value="hardware" ng-if="!data.isDutch">Hardware Request</option>
-                    <option value="hardware" ng-if="data.isDutch">Hardware Aanvraag</option>
-                    <option value="software" ng-if="!data.isDutch">Software Request</option>
-                    <option value="software" ng-if="data.isDutch">Software Aanvraag</option>
-                    <option value="hr" ng-if="!data.isDutch">HR Request</option>
-                    <option value="hr" ng-if="data.isDutch">HR Aanvraag</option>
-                    <option value="other" ng-if="!data.isDutch">Other</option>
-                    <option value="other" ng-if="data.isDutch">Overig</option>
-                </select>
-            </div>
-<div class="form-actions text-center">
+
+            <div class="form-actions text-center">
                 <button 
                     class="btn btn-primary btn-lg" 
                     ng-click="c.generateResponse()" 
@@ -69,6 +40,13 @@
             <i class="fa fa-spinner fa-spin fa-3x"></i>
             <p ng-if="!data.isDutch">{{c.processingMessage || 'Processing...'}}</p>
             <p ng-if="data.isDutch">{{c.processingMessage || 'Verwerken...'}}</p>
+            <!-- Show processing steps for transparency -->
+            <div ng-if="c.processingSteps.length > 0" class="processing-steps">
+                <div ng-repeat="step in c.processingSteps" class="processing-step" ng-class="{'step-active': step.status === 'active', 'step-completed': step.status === 'completed'}">
+                    <i class="fa" ng-class="{'fa-spinner fa-spin': step.status === 'active', 'fa-check': step.status === 'completed'}"></i>
+                    <span>{{step.message}}</span>
+                </div>
+            </div>
         </div>
 <div ng-if="c.errorMessage" class="alert alert-danger">
             <i class="fa fa-exclamation-triangle"></i>
@@ -78,36 +56,83 @@
                 <i class="fa fa-times"></i>
             </button>
         </div>
-<div ng-if="c.showResponse && c.responseType === 'simple_question' && !c.processing" class="ai-response-section">
+<div ng-if="c.showResponse && (c.responseType === 'simple_question' || c.responseType === 'service_request') && !c.processing" class="ai-response-section">
             <div class="ai-response-header">
-                <h4><i class="fa fa-lightbulb-o"></i> 
-                    <span ng-if="!data.isDutch">AI Answer</span>
-                    <span ng-if="data.isDutch">AI Antwoord</span>
+                <h4>
+                    <i class="fa" ng-class="{'fa-lightbulb-o': c.responseType === 'simple_question', 'fa-shopping-cart': c.responseType === 'service_request'}"></i>
+                    <span ng-if="!data.isDutch && c.responseType === 'simple_question'">AI Answer</span>
+                    <span ng-if="data.isDutch && c.responseType === 'simple_question'">AI Antwoord</span>
+                    <span ng-if="!data.isDutch && c.responseType === 'service_request'">Service Request</span>
+                    <span ng-if="data.isDutch && c.responseType === 'service_request'">Service Aanvraag</span>
                 </h4>
-                <p class="text-muted" ng-if="!data.isDutch">Here's the answer to your question:</p>
-                <p class="text-muted" ng-if="data.isDutch">Hier is het antwoord op uw vraag:</p>
+                <p class="text-muted" ng-if="!data.isDutch && c.responseType === 'simple_question'">Here's the answer to your question:</p>
+                <p class="text-muted" ng-if="data.isDutch && c.responseType === 'simple_question'">Hier is het antwoord op uw vraag:</p>
             </div>
             <div class="ai-direct-answer">
                 <div class="answer-content">
                     <i class="fa fa-quote-left"></i>
                     <div ng-bind-html="c.directAnswer"></div>
+
+                    <!-- Integrated Catalog Items Section for service_request -->
+                    <div ng-if="c.responseType === 'service_request' && c.showCatalogItems && c.catalogItems.length > 0" class="catalog-items-integrated">
+                        <div class="catalog-section-header">
+                            <h5><i class="fa fa-shopping-cart"></i>
+                                <span ng-if="!data.isDutch">Available Service Catalog Items:</span>
+                                <span ng-if="data.isDutch">Beschikbare Service Catalogus Items:</span>
+                            </h5>
+                        </div>
+                        <div class="catalog-list">
+                            <div ng-repeat="item in c.catalogItems" class="catalog-item-button">
+                                <a ng-href="{{item.link}}" target="_blank" class="btn btn-primary btn-block" title="{{item.fullDescription || item.description}}">
+                                    <div class="catalog-item-content">
+                                        <div class="catalog-item-main">
+                                            <i class="fa fa-external-link"></i>
+                                            <strong>{{item.name}}</strong>
+                                        </div>
+                                        <div ng-if="item.description" class="catalog-item-desc">
+                                            {{item.description}}
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <i class="fa fa-quote-right pull-right"></i>
                 </div>
             </div>
-            <div class="form-actions">
+
+            <!-- Form actions - moved below content for service_request -->
+            <div class="form-actions" ng-if="c.responseType === 'simple_question'">
                 <button class="btn btn-success" ng-click="c.resetForm()">
-                    <i class="fa fa-plus"></i> 
+                    <i class="fa fa-plus"></i>
                     <span ng-if="!data.isDutch">Ask Another Question</span>
                     <span ng-if="data.isDutch">Stel Nog Een Vraag</span>
                 </button>
-                <button class="btn btn-default" ng-click="c.createTicketDirectly()">
-                    <i class="fa fa-ticket"></i> 
+                <button class="btn btn-default" ng-click="c.createTicketDirectly()" ng-if="c.showTicketOption">
+                    <i class="fa fa-ticket"></i>
                     <span ng-if="!data.isDutch">Still Need Support Ticket</span>
                     <span ng-if="data.isDutch">Nog Steeds Support Ticket Nodig</span>
                 </button>
             </div>
+
+            <!-- Separate actions for service_request - below catalog items -->
+            <div class="form-actions" ng-if="c.responseType === 'service_request'">
+                <button class="btn btn-success" ng-click="c.resetForm()">
+                    <i class="fa fa-plus"></i>
+                    <span ng-if="!data.isDutch">Make Another Request</span>
+                    <span ng-if="data.isDutch">Doe Nog Een Aanvraag</span>
+                </button>
+                <button class="btn btn-default" ng-click="c.createTicketDirectly()" ng-if="c.showTicketOption">
+                    <i class="fa fa-ticket"></i>
+                    <span ng-if="!data.isDutch && !c.hasCatalogItems">Still Need Support Ticket</span>
+                    <span ng-if="data.isDutch && !c.hasCatalogItems">Nog Steeds Support Ticket Nodig</span>
+                    <span ng-if="!data.isDutch && c.hasCatalogItems">None of These Match My Request</span>
+                    <span ng-if="data.isDutch && c.hasCatalogItems">Geen Van Deze Past Bij Mijn Aanvraag</span>
+                </button>
+            </div>
         </div>
-<div ng-if="c.showResponse && c.responseType === 'complex_issue' && !c.processing" class="ai-suggestions-section">
+<div ng-if="c.showResponse && c.responseType === 'incident' && !c.processing" class="ai-suggestions-section">
             <div class="ai-suggestions-header">
                 <h4><i class="fa fa-wrench"></i> 
                     <span ng-if="!data.isDutch">AI Suggestions</span>
@@ -139,6 +164,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- Knowledge Articles Section -->
+        <div ng-if="c.showKnowledgeSources && c.knowledgeSources.length > 0" class="knowledge-articles-section">
+            <div class="section-header">
+                <h5><i class="fa fa-book"></i>
+                    <span ng-if="!data.isDutch">Related Knowledge Articles</span>
+                    <span ng-if="data.isDutch">Gerelateerde Kennisartikelen</span>
+                </h5>
+            </div>
+            <div class="knowledge-list">
+                <div ng-repeat="article in c.knowledgeSources" class="knowledge-item">
+                    <a ng-href="{{article.link}}" target="_blank" class="knowledge-link">
+                        <i class="fa fa-file-text-o"></i>
+                        <span class="knowledge-title">{{article.title}}</span>
+                        <span class="knowledge-number">({{article.number}})</span>
+                    </a>
+                    <p class="knowledge-preview" ng-if="article.snippet">{{article.snippet}}</p>
+                </div>
+            </div>
+        </div>
+
+
 <div ng-if="c.showQuestions && !c.submitted && !c.processing">
             <div class="ai-questions-header">
                 <h4><i class="fa fa-list-check"></i> Please answer the following questions:</h4>
@@ -301,11 +348,59 @@
                         />
                     </div>
                 </div>
+
+                <!-- Screenshot Upload Section (only for incidents) -->
+                <div ng-if="c.responseType === 'incident'" class="form-group screenshot-upload-section">
+                    <label class="form-label">
+                        <i class="fa fa-camera"></i>
+                        <span ng-if="!data.isDutch">Attach Screenshots (optional)</span>
+                        <span ng-if="data.isDutch">Voeg Screenshots Toe (optioneel)</span>
+                    </label>
+                    <p class="help-text" ng-if="!data.isDutch">
+                        You can attach up to 5 screenshots to help explain your issue (max 10MB per file)
+                    </p>
+                    <p class="help-text" ng-if="data.isDutch">
+                        U kunt maximaal 5 screenshots toevoegen om uw probleem te verduidelijken (max 10MB per bestand)
+                    </p>
+                    <input
+                        type="file"
+                        id="screenshot-upload-questions"
+                        accept="image/*"
+                        multiple
+                        style="display: none;"
+                        onchange="angular.element(this).scope().c.handleScreenshotUpload(this.files)"
+                    />
+                    <button
+                        type="button"
+                        class="btn btn-default"
+                        ng-click="c.triggerScreenshotUpload()"
+                        ng-disabled="c.screenshots.length >= 5">
+                        <i class="fa fa-upload"></i>
+                        <span ng-if="!data.isDutch">Upload Screenshots</span>
+                        <span ng-if="data.isDutch">Upload Screenshots</span>
+                    </button>
+                    <div ng-if="c.screenshots.length > 0" class="screenshot-preview-area">
+                        <div ng-repeat="screenshot in c.screenshots" class="screenshot-preview-item">
+                            <img ng-src="{{screenshot.dataUrl}}" alt="{{screenshot.name}}" class="screenshot-thumbnail" />
+                            <div class="screenshot-info">
+                                <strong>{{screenshot.name}}</strong>
+                                <small>{{(screenshot.size / 1024).toFixed(0)}} KB</small>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-danger screenshot-remove"
+                                ng-click="c.removeScreenshot($index)"
+                                title="{{data.isDutch ? 'Verwijderen' : 'Remove'}}">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </form>
 <div class="form-actions">
-                <button 
-                    class="btn btn-success btn-lg" 
-                    ng-click="c.submitRequest()" 
+                <button
+                    class="btn btn-success btn-lg"
+                    ng-click="c.submitRequest()"
                     ng-disabled="questionsForm.$invalid || c.processing">
                     <i class="fa" ng-class="{'fa-spinner fa-spin': c.processing, 'fa-check': !c.processing}"></i>
                     <span ng-if="!data.isDutch">{{c.processing ? 'Submitting...' : 'Submit Request'}}</span>

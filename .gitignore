@@ -1,5 +1,5 @@
 # ServiceNow artifacts
-servicenow/
+# servicenow/ - Now included for GitHub sharing
 .snow-flow/
 *.sys_id
 *.update_set.xml
