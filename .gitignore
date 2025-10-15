@@ -1,24 +1,9 @@
-# ServiceNow artifacts
-# servicenow/ - Now included for GitHub sharing
-.snow-flow/
-*.sys_id
-*.update_set.xml
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# Memory storage
-memory/
-
-# Dependencies
-node_modules/
-
-# Environment variables
+# Environment variables and secrets
 .env
 .env.local
 .env.*.local
+*.key
+*.pem
 
 # IDE
 .vscode/
@@ -31,15 +16,21 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# MCP configuration
-.mcp.json
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+test_*.js
+*.test.js
+
+# Build outputs
+dist/
+build/
 
 # Temporary files
 *.tmp
 *.temp
 tmp/
 temp/
-
-# Build outputs
-dist/
-build/

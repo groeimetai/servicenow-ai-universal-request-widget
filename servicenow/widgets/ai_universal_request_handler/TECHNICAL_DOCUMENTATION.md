@@ -736,16 +736,20 @@ var kbResults = searchKnowledgeBaseBySimilarity(
 ### 5. TSMAIQuestionGenerator - Smart Question Creation
 
 **What does it do?**
-Uses AI to generate targeted follow-up questions. Depending on the request type, the AI asks 3-5 questions that help complete the request.
+Uses AI to generate targeted follow-up questions for **ALL ticket types** (Incident, Service Request, Question, HR Case). Depending on the request type and content, the AI asks 3-5 questions that help complete the request.
+
+**Works for all routes:**
+- ✅ **Incident** → Technical troubleshooting questions
+- ✅ **Service Request** → Fulfillment requirement questions
+- ✅ **Question** → Information clarification questions
+- ✅ **HR Case** → HR-specific detail questions
 
 **Why use AI?**
-Because every situation is different. For "laptop not working" you want different questions than for "need new phone". AI can dynamically think of the best questions.
+Because every situation is different. For "laptop not working" you want different questions than for "need new phone" or "when is my holiday pay". AI dynamically generates the best questions based on both the ticket type AND the specific situation.
 
-**Example AI output:**
+**Example AI output per type:**
 
-User question: "My Outlook keeps crashing"
-
-AI generates:
+**Incident:** "My Outlook keeps crashing"
 ```json
 [
   {
@@ -767,6 +771,81 @@ AI generates:
   }
 ]
 ```
+
+**Service Request:** "I need access to the financial application"
+```json
+[
+  {
+    "question": "Which financial application do you need access to?",
+    "type": "text",
+    "required": true
+  },
+  {
+    "question": "What is your job role?",
+    "type": "text",
+    "required": true
+  },
+  {
+    "question": "When do you need this access?",
+    "type": "select",
+    "options": ["Urgent (today)", "This week", "Next week", "No rush"],
+    "required": true
+  },
+  {
+    "question": "Who is your manager for approval?",
+    "type": "text",
+    "required": true
+  }
+]
+```
+
+**Question:** "How do I request vacation days?"
+```json
+[
+  {
+    "question": "Is this for immediate vacation or future planning?",
+    "type": "select",
+    "options": ["Immediate (next 2 weeks)", "Future planning"],
+    "required": true
+  },
+  {
+    "question": "Have you checked the self-service portal?",
+    "type": "select",
+    "options": ["Yes, but couldn't find it", "No, not yet"],
+    "required": false
+  }
+]
+```
+
+**HR Case:** "When do I get my holiday pay?"
+```json
+[
+  {
+    "question": "Are you asking about this year's holiday pay?",
+    "type": "select",
+    "options": ["Yes, current year", "Previous year", "Both"],
+    "required": true
+  },
+  {
+    "question": "Have you already received a partial payment?",
+    "type": "select",
+    "options": ["Yes", "No", "Not sure"],
+    "required": true
+  },
+  {
+    "question": "What is your employee number?",
+    "type": "text",
+    "required": true
+  }
+]
+```
+
+**How AI adapts the questions:**
+- Uses ticket classification (incident/request/question/HR)
+- Analyzes specific user request content
+- Generates contextually relevant questions
+- Determines which questions are mandatory vs optional
+- Chooses appropriate input types (text/select/checkbox)
 
 ### 6. TSMAIAgentCore - AI Intelligence
 
@@ -922,19 +1001,22 @@ This is what happens from the moment a user clicks "Submit":
    │
    ├─ STEP 1: Init status (3 steps: pending)
    │
-   ├─ STEP 2: Classify
-   │  ├─ Classifier: check keywords "start", "won't", "anymore"
-   │  └─ Result: 'incident' ✓
+   ├─ STEP 2: Classify (AI-powered)
+   │  ├─ Classifier: Call Datacenter LLM for classification
+   │  ├─ AI analyzes: "My laptop won't start anymore"
+   │  ├─ AI determines: Technical issue, hardware/software failure
+   │  └─ Result: 'incident' (confidence: 0.95) ✓
    │
-   ├─ STEP 3: Search KB + Catalog
-   │  ├─ Keywords: ['laptop', 'start']
-   │  ├─ Query kb_knowledge: "laptop" OR "start"
-   │  └─ Found: 2 articles ✓
+   ├─ STEP 3: Search KB + Catalog (Contextual/Semantic)
+   │  ├─ Generate embedding: "My laptop won't start"
+   │  ├─ Search KB using semantic similarity
+   │  ├─ Find articles by MEANING, not just keywords
+   │  └─ Found: 2 articles with relevance > 0.5 ✓
    │
    ├─ STEP 4: Generate AI Response
-   │  ├─ Build context with KB articles
+   │  ├─ Build context with found KB articles
    │  ├─ Call Datacenter LLM via MID Server
-   │  │  ├─ POST to LLM endpoint
+   │  │  ├─ POST to LLM endpoint with KB context
    │  │  ├─ Wait 3 seconds...
    │  │  └─ Response: {content: "It sounds like...", sources: [...]}
    │  └─ Parse suggestions from response
@@ -1065,11 +1147,11 @@ Widget Client Script
 
 | Step | Time | What happens |
 |------|------|-------------|
-| Classification | 500-1000ms | Keyword matching |
-| KB Search | 800-1500ms | Database query |
-| LLM Call | 2000-5000ms | AI generates response |
-| Question Gen | 1000-2000ms | AI creates questions |
-| Ticket Create | 500-1000ms | Database insert |
+| Classification | 800-2000ms | AI classification via Datacenter LLM |
+| KB Search | 1000-2000ms | Contextual search using embeddings |
+| LLM Call | 2000-5000ms | AI generates response with KB context |
+| Question Gen | 1000-2000ms | AI creates dynamic questions |
+| Ticket Create | 500-1000ms | Database insert with attachments |
 
 **Total:**
 - Initial request → AI response: 5-12 seconds
