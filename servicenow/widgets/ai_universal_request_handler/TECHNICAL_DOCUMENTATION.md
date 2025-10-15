@@ -653,37 +653,85 @@ FALLBACK (Keyword):
 ### 4. TSMAISearchEngine - Search KB and Catalog
 
 **What does it do?**
-This is the largest module (944 lines) that does all the search work. Searches Knowledge Base articles and Service Catalog items.
+This is the largest module (944 lines) that does all the search work. Searches Knowledge Base articles and Service Catalog items using **contextual search** (semantic similarity).
 
 **Why is this important?**
 Before AI gives a response, we want to first check if there are existing KB articles. We use those as context for the AI ("here's what we've already documented, use this in your answer").
 
-**Strategy:**
+**Strategy: Contextual Search (Semantic)**
 
 ```
-1. Search directly in Knowledge Base first
+1. Convert user query to embedding (vector representation)
    ↓
-2. No results? Try broader search with keywords
+   "My laptop won't start" → [0.234, -0.512, 0.891, ...]
+
+2. Search Knowledge Base using semantic similarity
    ↓
-3. Score all results on relevance (0-1)
+   Finds articles with similar MEANING, not just matching words
+   Example: Finds "Computer startup issues" even though no exact word match
+
+3. Score results on semantic relevance (0-1)
    ↓
+   Cosine similarity between query embedding and KB article embeddings
+
 4. Filter: only results with score > 0.5
    ↓
-5. Sort: highest score first
+
+5. Sort: highest similarity score first
    ↓
-6. Return top 10 results
+
+6. Return top 10 results with metadata
+   ↓
+   Includes: title, snippet, relevance score, sys_id, article link
 ```
 
-**Keyword extraction:**
+**Why Contextual Search instead of Keywords?**
+
+**Traditional Keyword Search:**
+```
+Query: "My laptop won't start"
+Searches for: "laptop" AND "start"
+Misses: "Computer boot failure" (no matching words) ❌
+```
+
+**Contextual/Semantic Search:**
+```
+Query: "My laptop won't start"
+Understands meaning: startup problems, boot issues, power failures
+Finds:
+  - "Computer boot failure" ✓ (similar meaning)
+  - "Laptop power issues" ✓ (similar meaning)
+  - "Windows startup troubleshooting" ✓ (related concept)
+```
+
+**How it works technically:**
 
 ```javascript
-// "My laptop won't start and gives an error message"
-// ↓
-// Remove stopwords: "the", "a", "and", "my"
-// Remove short words: < 3 characters
-// ↓
-// Result: ["laptop", "start", "error", "message"]
+// 1. Generate embedding for user query
+var queryEmbedding = generateEmbedding(userRequest);
+
+// 2. Search KB articles with similar embeddings
+var kbResults = searchKnowledgeBaseBySimilarity(
+  queryEmbedding,
+  threshold: 0.5,
+  limit: 10
+);
+
+// 3. Each result includes semantic relevance score
+{
+  title: "Laptop startup issues",
+  snippet: "If your laptop won't turn on...",
+  relevanceScore: 0.87,  // High semantic similarity
+  sys_id: "abc123",
+  url: "/kb_view.do?sys_id=abc123"
+}
 ```
+
+**Benefits:**
+- Finds relevant articles even with different wording
+- Understands synonyms and related concepts
+- Better matches for multilingual queries (Dutch/English)
+- More accurate than keyword matching
 
 ### 5. TSMAIQuestionGenerator - Smart Question Creation
 
