@@ -222,90 +222,19 @@ api.controller = function($scope, $http, spUtil, $sce, $timeout) {
       // Screenshots removed - vision API doesn't work, screenshots only used for ticket attachment
     };
 
-    // Simulate intelligent status updates based on what we're doing
-    // These are timed realistically based on actual ServiceNow processing times
-    var updateSteps = function(classification) {
-      if (!c.processing) return;
-
-      // Step 1: Classification complete
-      $timeout(function() {
-        if (!c.processing) return;
-        c.addProcessingStep(c.isLanguageDutch ? 'Verbinding maken met AI...' : 'Connecting to AI...', 'completed');
-        c.addProcessingStep(c.isLanguageDutch ? 'AI analyseert uw aanvraag...' : 'AI is analyzing your request...', 'active');
-      }, 300);
-
-      // Step 2: Based on classification, show appropriate search
-      $timeout(function() {
-        if (!c.processing) return;
-        c.addProcessingStep(c.isLanguageDutch ? 'AI analyseert uw aanvraag...' : 'AI is analyzing your request...', 'completed');
-
-        // Dynamic based on actual classification
-        if (classification === 'request') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar relevante services in de catalogus...' : 'Searching for relevant services in catalog...', 'active');
-        } else if (classification === 'question') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken in kennisbank...' : 'Searching knowledge base...', 'active');
-        } else {
-          c.addProcessingStep(c.isLanguageDutch ? 'Analyseren van het probleem...' : 'Analyzing the issue...', 'active');
-        }
-      }, 800);
-
-      // Step 3: Secondary search (AI agent decides to search more)
-      $timeout(function() {
-        if (!c.processing) return;
-
-        if (classification === 'request') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar relevante services in de catalogus...' : 'Searching for relevant services in catalog...', 'completed');
-          c.addProcessingStep(c.isLanguageDutch ? 'Kennisbank doorzoeken voor aanvullende informatie...' : 'Searching knowledge base for additional info...', 'active');
-        } else if (classification === 'question') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken in kennisbank...' : 'Searching knowledge base...', 'completed');
-          c.addProcessingStep(c.isLanguageDutch ? 'Controleren op gerelateerde services...' : 'Checking for related services...', 'active');
-        } else {
-          c.addProcessingStep(c.isLanguageDutch ? 'Analyseren van het probleem...' : 'Analyzing the issue...', 'completed');
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar oplossingen...' : 'Searching for solutions...', 'active');
-        }
-      }, 1400);
-
-      // Step 4: Evaluation
-      $timeout(function() {
-        if (!c.processing) return;
-
-        if (classification === 'request') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Kennisbank doorzoeken voor aanvullende informatie...' : 'Searching knowledge base for additional info...', 'completed');
-        } else if (classification === 'question') {
-          c.addProcessingStep(c.isLanguageDutch ? 'Controleren op gerelateerde services...' : 'Checking for related services...', 'completed');
-        } else {
-          c.addProcessingStep(c.isLanguageDutch ? 'Zoeken naar oplossingen...' : 'Searching for solutions...', 'completed');
-        }
-
-        c.addProcessingStep(c.isLanguageDutch ? 'Evalueren van gevonden resultaten...' : 'Evaluating found results...', 'active');
-      }, 2000);
-
-      // Step 5: Generating response
-      $timeout(function() {
-        if (!c.processing) return;
-        c.addProcessingStep(c.isLanguageDutch ? 'Evalueren van gevonden resultaten...' : 'Evaluating found results...', 'completed');
-        c.addProcessingStep(c.isLanguageDutch ? 'Beste antwoord genereren...' : 'Generating best response...', 'active');
-      }, 2400);
-
-      // Step 6: Complete
-      $timeout(function() {
-        if (!c.processing) return;
-        c.addProcessingStep(c.isLanguageDutch ? 'Beste antwoord genereren...' : 'Generating best response...', 'completed');
-      }, 2800);
-    };
+    // Start real-time status polling immediately
+    c.startStatusPolling(c.sessionId);
 
     // Make the request
     c.server.get(requestData).then(function(response) {
       var serverData = response.data && response.data.result ? response.data.result : null;
 
-      // Mark processing complete after a slight delay
-      $timeout(function() {
-        c.processing = false;
-      }, 3000);
+      // Stop polling when response arrives
+      c.stopStatusPolling();
+      c.processing = false;
 
       if (serverData && serverData.success) {
-        // Start intelligent status updates based on actual classification
-        updateSteps(serverData.classification);
+        // Real-time status updates handled by polling
 
         // Language already set from system preferences
         // Map server classification to template-compatible responseType
@@ -373,6 +302,8 @@ api.controller = function($scope, $http, spUtil, $sce, $timeout) {
         c.errorMessage = errorMsg;
       }
     }).catch(function(error) {
+      // Stop polling on error
+      c.stopStatusPolling();
       c.processing = false;
       c.errorMessage = c.isLanguageDutch ? 'Fout bij analyseren aanvraag. Probeer later opnieuw.' : 'Error analyzing request. Please try again later.';
     });

@@ -104,31 +104,70 @@ This is the form that the user sees. All buttons, text fields, progress bars - e
 
 **Main sections:**
 
+The widget has **different routes** that show/hide sections based on the classified ticket type:
+
 ```
-├─ Input Section
+├─ Input Section (Always visible)
 │  ├─ Large text field where user types question
-│  ├─ Dropdown menu for type (incident/service request/question)
-│  ├─ Screenshot upload button (max 3 files)
+│  ├─ Dropdown menu for type hint (incident/service request/question)
 │  └─ "Submit" button to start
 │
-├─ AI Response Section
+├─ AI Response Section (Shows after classification)
 │  ├─ Spinning loader during processing
 │  ├─ Progress bar showing how far we are
 │  ├─ Status messages per step (classifying, searching, AI thinking)
 │  ├─ AI suggestions in cards
 │  └─ Links to found KB articles
 │
-├─ Question List Section
-│  ├─ Dynamic questions that AI generated
-│  ├─ Input fields (text/dropdown/checkbox depending on question)
-│  ├─ Red asterisk for required questions
+├─ Question List Section (Dynamic based on ticket type)
+│  ├─ Different questions for each ticket type:
+│  │  ├─ Incident → When did it start? What error? Which system?
+│  │  ├─ Service Request → What do you need? For which user? When needed?
+│  │  ├─ Question → What information? Related to which topic?
+│  │  └─ HR Case → Leave dates? Contract question? Salary inquiry?
+│  │
+│  ├─ Input fields (text/dropdown/checkbox depending on question type)
+│  ├─ Red asterisk (*) for required questions
+│  ├─ Screenshot upload section (max 3 files × 5MB)
+│  │  └─ ⚠️ ONLY visible for INCIDENTS
 │  └─ "Submit form" button
 │
-└─ Confirmation Section
+└─ Confirmation Section (Shows after successful submission)
    ├─ Green checkmark + success message
-   ├─ Ticket number (e.g., INC0010123)
+   ├─ Ticket number (e.g., INC0010123, RITM0010456, HR0001234)
    └─ "New request" button to start over
 ```
+
+**Important: Dynamic Field Visibility**
+
+The widget adapts its form based on AI classification:
+
+- **Screenshot Upload**: Only shown AFTER AI generates questions AND only for incidents
+  ```javascript
+  ng-show="c.data.showQuestions && c.data.requestType === 'incident'"
+  ```
+  This means:
+  1. User submits initial request
+  2. AI classifies as incident
+  3. AI generates questions
+  4. Question list appears WITH screenshot upload button
+  5. User can now attach screenshots before final submission
+
+- **Questions**: Different questions generated per type
+  ```javascript
+  // Incident → technical troubleshooting questions
+  // Service Request → fulfillment requirement questions
+  // Question → information request clarifications
+  // HR Case → HR-specific detail questions
+  ```
+
+- **Confirmation Message**: Changes based on ticket created
+  ```javascript
+  // Incident: "Your incident INC0010123 has been created"
+  // Service Request: "Your request RITM0010456 has been submitted"
+  // Question: "Your question has been logged"
+  // HR Case: "Your HR case HR0001234 has been created"
+  ```
 
 **Important HTML examples:**
 
@@ -553,10 +592,26 @@ T=5000ms:  [Classifying: done!] ← GREEN
 ### 3. TSMAIClassifier - Type Recognition
 
 **What does it do?**
-Automatically determines what type of request it is via keyword matching. Super fast because it doesn't need AI.
+Determines what type of request it is. Uses AI as the primary method with keyword matching as fallback.
 
-**How does it work?**
-Looks for signal words in the user's text:
+**How does it work - Two-tier approach:**
+
+**PRIMARY: AI Classification (via Datacenter LLM)**
+- Sends user request to AI with classification prompt
+- AI analyzes context, intent, and nuance
+- More accurate than keyword matching
+- Can handle complex requests like "My manager asked me to get the new software but it doesn't work"
+- Returns classification with confidence score
+
+**FALLBACK: Keyword Matching**
+- Only used when:
+  - AI/LLM is not available
+  - AI call fails or times out
+  - System property `datacenter.llm.enabled` = false
+- Fast but less accurate
+- Looks for signal words in text
+
+**Keyword lists (fallback only):**
 
 **Incident keywords:**
 - "not working", "broken", "down", "defect", "problem"
@@ -569,24 +624,31 @@ Looks for signal words in the user's text:
 **HR keywords:**
 - "leave", "vacation", "sick", "salary", "contract"
 
-**Examples:**
+**Example classification flow:**
 
 ```
-"My laptop doesn't work anymore"
+User: "My laptop doesn't work anymore"
+
+PRIMARY (AI):
+→ Sends to LLM: "Classify this request: My laptop doesn't work anymore"
+→ AI analyzes: Technical issue, broken hardware/software
+→ Result: INCIDENT (confidence: 0.95)
+✓ USED
+
+FALLBACK (Keyword):
+→ Only runs if AI fails
 → Keywords: "doesn't", "work", "anymore"
 → Match: incident keywords
 → Result: INCIDENT
-
-"I would like access to the financial application"
-→ Keywords: "would like", "access"
-→ Match: service request keywords
-→ Result: SERVICE REQUEST
-
-"When do I get my salary?"
-→ Keywords: "salary"
-→ Match: HR keywords
-→ Result: HR CASE
+⚠️ Not used (AI succeeded)
 ```
+
+**Why this approach?**
+- **AI is smarter**: Understands context, not just keywords
+  - "I need my laptop fixed" → AI: INCIDENT (keyword would match "need" = SERVICE REQUEST ❌)
+  - "Can you help me understand the leave policy?" → AI: QUESTION (keyword would match "leave" = HR CASE ❌)
+- **Keyword is reliable**: Always works, even if AI is down
+- **Fast failover**: If AI takes >5 seconds, fallback kicks in automatically
 
 ### 4. TSMAISearchEngine - Search KB and Catalog
 
