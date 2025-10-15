@@ -23,6 +23,7 @@
 **Main Widget:**
 - `widgets/ai_universal_request_handler/` - Universal AI request form
   - Full conversational UI
+  - **Real-time status polling** - See actual AI processing progress (v2.0.1)
   - Screenshot upload support
   - AI-powered question generation
   - Intelligent ticket creation

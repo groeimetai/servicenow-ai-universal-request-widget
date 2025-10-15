@@ -4,7 +4,23 @@ Snow-Flow is a powerful multi-agent AI platform that revolutionizes ServiceNow d
 
 ## 🆕 What's New
 
-### 🌐 v2.0.0 - Generic OpenAI Integration (Latest)
+### ⚡ v2.0.1 - Real-Time Status Polling (Latest)
+
+**NOW WITH REAL-TIME FEEDBACK!** 🔴 LIVE
+
+The AI Universal Request Handler widget now shows **actual server processing progress** instead of simulated delays:
+
+- ✅ **Real-Time Updates** - See actual AI processing steps as they happen
+- ✅ **Accurate Timing** - Fast requests complete quickly, slow requests show ongoing progress
+- ✅ **Server Polling** - Client polls every 500ms for live status updates
+- ✅ **No Fake Delays** - Removed hardcoded timeouts (300ms, 800ms, 1400ms)
+- ✅ **Better UX** - Users understand exactly what's happening
+
+**Technical:** Uses existing TSMAIStatusTracker session storage + client polling infrastructure that was previously unused.
+
+**Documentation:** See [REALTIME_STATUS_IMPLEMENTATION.md](./REALTIME_STATUS_IMPLEMENTATION.md) for complete details.
+
+### 🌐 v2.0.0 - Generic OpenAI Integration
 
 **BREAKING CHANGE - Now GitHub Ready!** 🎉
 
