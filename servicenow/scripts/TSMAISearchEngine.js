@@ -73,6 +73,13 @@ ALAISearchEngine.prototype = {
               sys_id = result.sys_id;
             }
 
+            // CRITICAL: Skip non-KB items (e.g. catalog items)
+            // Only process items from knowledge tables (kb_knowledge)
+            if (tableName && tableName !== 'kb_knowledge') {
+              gs.info('🔍 KB Filter: Skipping non-KB item from table: ' + tableName + ' - ' + result.title);
+              continue;
+            }
+
             // ENHANCED Security Check: Multi-level validation
             if (sys_id && tableName) {
               // Use GlideRecordSecure for automatic ACL enforcement
@@ -175,6 +182,13 @@ ALAISearchEngine.prototype = {
             // If sys_id not found in id field, try sys_id directly
             if (!cat_sys_id && catResult.sys_id) {
               cat_sys_id = catResult.sys_id;
+            }
+
+            // CRITICAL: Skip non-catalog items (e.g. KB articles)
+            // Only process items from catalog tables (sc_cat_item, sc_cat_item_producer, etc.)
+            if (catTableName && catTableName.indexOf('sc_cat_item') !== 0) {
+              gs.info('🔍 Catalog Filter: Skipping non-catalog item from table: ' + catTableName + ' - ' + catResult.title);
+              continue;
             }
 
             // ENHANCED Security Check: Multi-level validation for Catalog Items
