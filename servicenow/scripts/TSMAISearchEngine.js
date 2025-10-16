@@ -1,12 +1,12 @@
 /**
- * TSMAISearchEngine - Unified Search Module
+ * ALAISearchEngine - Unified Search Module
  *
  * PURPOSE: Comprehensive search across Knowledge Base and Service Catalog  
  * INPUT: Search terms, language, user requests
  * PROCESS: Contextual Search API + AI-based relevance filtering
  * OUTPUT: Filtered, ranked results from KB and Catalog
  *
- * DEPENDENCIES: TSMAIRequestHelpers (for AI calls)
+ * DEPENDENCIES: ALAIRequestHelpers (for AI calls)
  *
  * FUNCTIONS (10):
  * - searchUnified: Combined KB + Catalog search
@@ -21,9 +21,9 @@
  * - filterCatalogItemsByRelevance: AI filtering
  */
 
-var TSMAISearchEngine = function() {};
+var ALAISearchEngine = function() {};
 
-TSMAISearchEngine.prototype = {
+ALAISearchEngine.prototype = {
 
   searchUnified: function(searchTerm, language) {
     try {
@@ -47,10 +47,12 @@ TSMAISearchEngine.prototype = {
         // Search catalog items with Search Context
         var catalogResponse = contextualSearch.search(searchContextId, searchTerm, null);
 
-        // Process KB results with security check
+        // Process KB results with ENHANCED security check
         var knowledgeArticles = [];
         if (kbResponse && kbResponse.results) {
           var kbResults = kbResponse.results;
+          gs.info('🔍 Processing ' + kbResults.length + ' KB results from Contextual Search');
+
           for (var i = 0; i < kbResults.length; i++) {
             var result = kbResults[i];
 
@@ -61,25 +63,76 @@ TSMAISearchEngine.prototype = {
               var idParts = result.id.split(':');
               if (idParts.length > 1) {
                 tableName = idParts[0]; // Get the actual table name
-                sys_id = idParts[1].split(' ')[0]; // Remove ➚ symbol
+                sys_id = idParts[1].split(' ')[0]; // Remove ➚ symbol and any trailing characters
+                sys_id = sys_id.trim(); // Remove any whitespace
               }
             }
 
-            // Security Check: Verify user has access to this KB article
+            // If sys_id not found in id field, try sys_id directly
+            if (!sys_id && result.sys_id) {
+              sys_id = result.sys_id;
+            }
+
+            // ENHANCED Security Check: Multi-level validation
             if (sys_id && tableName) {
-              var kbCheck = new GlideRecord(tableName);
+              // Use GlideRecordSecure for automatic ACL enforcement
+              var kbCheck = new GlideRecordSecure(tableName);
+
               if (kbCheck.get(sys_id)) {
-                // canRead() checks ACLs - only include if user has access
-                if (!kbCheck.canRead()) {
-                  gs.info('Security Filter: Excluding KB article (no access): ' + result.title + ' [' + tableName + ':' + sys_id + ']');
-                  continue; // Skip this article
+                // Level 1: Check workflow state (must be published)
+                var workflowState = kbCheck.getValue('workflow_state');
+                if (workflowState && workflowState !== 'published') {
+                  gs.info('🔒 Security Filter: Excluding KB article (not published): ' + result.title + ' [state: ' + workflowState + ']');
+                  continue;
                 }
+
+                // Level 2: Check if active
+                var isActive = kbCheck.getValue('active');
+                if (isActive === 'false' || isActive === false) {
+                  gs.info('🔒 Security Filter: Excluding KB article (not active): ' + result.title);
+                  continue;
+                }
+
+                // Level 3: Check canRead() for ACL validation
+                if (!kbCheck.canRead()) {
+                  gs.info('🔒 Security Filter: Excluding KB article (ACL denied): ' + result.title + ' [' + tableName + ':' + sys_id + ']');
+                  continue;
+                }
+
+                // Level 4: Check user criteria (can_read_user_criteria field)
+                var canReadUserCriteria = kbCheck.getValue('can_read_user_criteria');
+                if (canReadUserCriteria) {
+                  // Use ServiceNow's native API to check user criteria against current user
+                  var userCriteria = new GlideSysUserCriteria();
+                  userCriteria.setUserCriteriaID(canReadUserCriteria);
+                  if (!userCriteria.userMatches()) {
+                    gs.info('🔒 Security Filter: Excluding KB article (user criteria not met): ' + result.title);
+                    continue;
+                  }
+                }
+
+                // Level 5: Check valid_to date (article expiration)
+                var validTo = kbCheck.getValue('valid_to');
+                if (validTo) {
+                  var validToDate = new GlideDateTime(validTo);
+                  var now = new GlideDateTime();
+                  if (validToDate.before(now)) {
+                    gs.info('🔒 Security Filter: Excluding KB article (expired): ' + result.title);
+                    continue;
+                  }
+                }
+
+                gs.info('✅ Security Filter: KB article passed all checks: ' + result.title);
               } else {
-                gs.warn('Security Filter: KB article not found in table ' + tableName + ': ' + sys_id);
-                continue; // Skip if article doesn't exist
+                gs.warn('🔒 Security Filter: KB article not found or no access: ' + result.title + ' [' + tableName + ':' + sys_id + ']');
+                continue;
               }
+            } else {
+              gs.warn('🔒 Security Filter: Invalid sys_id or table name for result: ' + result.title);
+              continue;
             }
 
+            // Article passed all security checks, include it
             knowledgeArticles.push({
               sys_id: sys_id,
               number: result.number || result.meta.number || '',
@@ -94,12 +147,16 @@ TSMAISearchEngine.prototype = {
               helpful_count: result.useful_count || 0
             });
           }
+
+          gs.info('🔍 Security filtering complete: ' + knowledgeArticles.length + ' articles passed security checks out of ' + kbResults.length + ' total');
         }
 
-        // Process Catalog results
+        // Process Catalog results with ENHANCED security check
         var catalogItems = [];
         if (catalogResponse && catalogResponse.results) {
           var catResults = catalogResponse.results;
+          gs.info('🔍 Processing ' + catResults.length + ' Catalog results from Contextual Search');
+
           for (var j = 0; j < catResults.length; j++) {
             var catResult = catResults[j];
 
@@ -110,25 +167,86 @@ TSMAISearchEngine.prototype = {
               var catIdParts = catResult.id.split(':');
               if (catIdParts.length > 1) {
                 catTableName = catIdParts[0]; // Get the actual table name
-                cat_sys_id = catIdParts[1].split(' ')[0]; // Remove ➚ symbol
+                cat_sys_id = catIdParts[1].split(' ')[0]; // Remove ➚ symbol and any trailing characters
+                cat_sys_id = cat_sys_id.trim(); // Remove any whitespace
               }
             }
 
-            // Security Check: Verify user has access to this catalog item
+            // If sys_id not found in id field, try sys_id directly
+            if (!cat_sys_id && catResult.sys_id) {
+              cat_sys_id = catResult.sys_id;
+            }
+
+            // ENHANCED Security Check: Multi-level validation for Catalog Items
             if (cat_sys_id && catTableName) {
-              var catCheck = new GlideRecord(catTableName);
+              // Use GlideRecordSecure for automatic ACL enforcement
+              var catCheck = new GlideRecordSecure(catTableName);
+
               if (catCheck.get(cat_sys_id)) {
-                // canRead() checks ACLs - only include if user has access
-                if (!catCheck.canRead()) {
-                  gs.info('Security Filter: Excluding catalog item (no access): ' + catResult.title + ' [' + catTableName + ':' + cat_sys_id + ']');
-                  continue; // Skip this catalog item
+                // Level 1: Check if active
+                var isActive = catCheck.getValue('active');
+                if (isActive === 'false' || isActive === false) {
+                  gs.info('🔒 Security Filter: Excluding catalog item (not active): ' + catResult.title);
+                  continue;
                 }
+
+                // Level 2: Check canRead() for ACL validation
+                if (!catCheck.canRead()) {
+                  gs.info('🔒 Security Filter: Excluding catalog item (ACL denied): ' + catResult.title + ' [' + catTableName + ':' + cat_sys_id + ']');
+                  continue;
+                }
+
+                // Level 3: Check available on portal
+                var availableOnPortal = catCheck.getValue('available_on_portal');
+                if (availableOnPortal === 'false' || availableOnPortal === false) {
+                  gs.info('🔒 Security Filter: Excluding catalog item (not available on portal): ' + catResult.title);
+                  continue;
+                }
+
+                // Level 4: Check time-based availability (active_from / active_to)
+                var now = new GlideDateTime();
+
+                var activeFrom = catCheck.getValue('active_from');
+                if (activeFrom) {
+                  var activeFromDate = new GlideDateTime(activeFrom);
+                  if (now.before(activeFromDate)) {
+                    gs.info('🔒 Security Filter: Excluding catalog item (not yet active): ' + catResult.title + ' [active from: ' + activeFrom + ']');
+                    continue;
+                  }
+                }
+
+                var activeTo = catCheck.getValue('active_to');
+                if (activeTo) {
+                  var activeToDate = new GlideDateTime(activeTo);
+                  if (now.after(activeToDate)) {
+                    gs.info('🔒 Security Filter: Excluding catalog item (no longer active): ' + catResult.title + ' [active to: ' + activeTo + ']');
+                    continue;
+                  }
+                }
+
+                // Level 5: Check user criteria (if supported by catalog item)
+                var userCriteria = catCheck.getValue('user_criteria');
+                if (userCriteria) {
+                  // Use ServiceNow's native API to check user criteria against current user
+                  var catUserCriteria = new GlideSysUserCriteria();
+                  catUserCriteria.setUserCriteriaID(userCriteria);
+                  if (!catUserCriteria.userMatches()) {
+                    gs.info('🔒 Security Filter: Excluding catalog item (user criteria not met): ' + catResult.title);
+                    continue;
+                  }
+                }
+
+                gs.info('✅ Security Filter: Catalog item passed all checks: ' + catResult.title);
               } else {
-                gs.warn('Security Filter: Catalog item not found in table ' + catTableName + ': ' + cat_sys_id);
-                continue; // Skip if item doesn't exist
+                gs.warn('🔒 Security Filter: Catalog item not found or no access: ' + catResult.title + ' [' + catTableName + ':' + cat_sys_id + ']');
+                continue;
               }
+            } else {
+              gs.warn('🔒 Security Filter: Invalid sys_id or table name for result: ' + catResult.title);
+              continue;
             }
 
+            // Item passed all security checks, include it
             var description = catResult.snippet || catResult.short_description || '';
             var truncatedDescription = description;
             if (description.length > 80) {
@@ -151,6 +269,8 @@ TSMAISearchEngine.prototype = {
               order_url: portalUrl
             });
           }
+
+          gs.info('🔍 Security filtering complete: ' + catalogItems.length + ' catalog items passed security checks out of ' + catResults.length + ' total');
         }
 
         // AI Filter: Let AI analyze and select only TRULY relevant catalog items
@@ -223,7 +343,7 @@ TSMAISearchEngine.prototype = {
    */
   extractSearchKeywords: function(request, language, llmEnabled) {
     try {
-      var helpers = new TSMAIRequestHelpers();
+      var helpers = new ALAIRequestHelpers();
 
       // Build LLM prompt to extract keywords
       var prompt = '';
@@ -245,7 +365,7 @@ TSMAISearchEngine.prototype = {
         prompt += 'Search terms:';
       }
 
-      var response = helpers.callOpenAI(prompt, llmEnabled, null, 50);
+      var response = helpers.callOpenAI(prompt, llmEnabled, 'alliander-ai-assistant', 50);
       if (response.success) {
         var keywords = response.content.trim();
         // Clean up any quotes or extra formatting
@@ -344,13 +464,18 @@ TSMAISearchEngine.prototype = {
   },
 
   /**
-   * Fallback catalog search using GlideRecord (if Contextual Search unavailable)
+   * Fallback catalog search using GlideRecordSecure (if Contextual Search unavailable)
+   * Uses GlideRecordSecure to automatically enforce ACLs
    */
   fallbackCatalogSearch: function(searchTerm) {
     try {
+      gs.info('🔍 fallbackCatalogSearch: Starting fallback catalog search with GlideRecordSecure');
       var catalogItems = [];
-      var catalogItem = new GlideRecord('sc_cat_item');
+
+      // Use GlideRecordSecure instead of GlideRecord for automatic ACL enforcement
+      var catalogItem = new GlideRecordSecure('sc_cat_item');
       catalogItem.addQuery('active', true);
+      catalogItem.addQuery('available_on_portal', true); // Only portal-available items
 
       // Simple CONTAINS search on name and description
       var condition = catalogItem.addQuery('name', 'CONTAINS', searchTerm);
@@ -361,7 +486,43 @@ TSMAISearchEngine.prototype = {
       catalogItem.setLimit(10);
       catalogItem.query();
 
+      var foundCount = 0;
       while (catalogItem.next()) {
+        foundCount++;
+
+        // Additional validation: Check time-based availability
+        var now = new GlideDateTime();
+
+        var activeFrom = catalogItem.getValue('active_from');
+        if (activeFrom) {
+          var activeFromDate = new GlideDateTime(activeFrom);
+          if (now.before(activeFromDate)) {
+            gs.info('🔒 fallbackCatalogSearch: Skipping item (not yet active): ' + catalogItem.getValue('name'));
+            continue;
+          }
+        }
+
+        var activeTo = catalogItem.getValue('active_to');
+        if (activeTo) {
+          var activeToDate = new GlideDateTime(activeTo);
+          if (now.after(activeToDate)) {
+            gs.info('🔒 fallbackCatalogSearch: Skipping item (no longer active): ' + catalogItem.getValue('name'));
+            continue;
+          }
+        }
+
+        // Additional validation: Check user criteria if present
+        var userCriteria = catalogItem.getValue('user_criteria');
+        if (userCriteria) {
+          // Use ServiceNow's native API to check user criteria against current user
+          var fallbackCatCriteria = new GlideSysUserCriteria();
+          fallbackCatCriteria.setUserCriteriaID(userCriteria);
+          if (!fallbackCatCriteria.userMatches()) {
+            gs.info('🔒 fallbackCatalogSearch: Skipping item (user criteria not met): ' + catalogItem.getValue('name'));
+            continue;
+          }
+        }
+
         var description = catalogItem.getValue('short_description') || catalogItem.getValue('description') || '';
         var truncatedDescription = description;
         if (description.length > 80) {
@@ -382,12 +543,15 @@ TSMAISearchEngine.prototype = {
         });
       }
 
+      gs.info('🔍 fallbackCatalogSearch: Found ' + foundCount + ' items, ' + catalogItems.length + ' passed security checks');
+
       return {
         success: true,
         results: catalogItems,
-        searchMethod: 'fallback_gliderecord'
+        searchMethod: 'fallback_gliderecord_secure'
       };
     } catch (error) {
+      gs.error('❌ fallbackCatalogSearch error: ' + error.toString());
       return {
         success: false,
         error: error.toString(),
@@ -480,15 +644,76 @@ TSMAISearchEngine.prototype = {
 
       var searchResults = searchAPI.search(searchConfig);
 
-      // Parse Contextual Search results
+      // Parse Contextual Search results with ENHANCED security validation
       var articles = [];
       if (searchResults && searchResults.results) {
         var results = searchResults.results;
+        gs.info('🔍 searchKnowledgeBase: Processing ' + results.length + ' KB results from Contextual Search');
 
         for (var i = 0; i < results.length; i++) {
           var result = results[i];
+          var sys_id = result.sys_id || '';
 
-          // Extract article data from Contextual Search result
+          // ENHANCED Security Check: Multi-level validation (same as searchUnified)
+          if (sys_id) {
+            // Use GlideRecordSecure for automatic ACL enforcement
+            var kbCheck = new GlideRecordSecure('kb_knowledge');
+
+            if (kbCheck.get(sys_id)) {
+              // Level 1: Check workflow state (must be published)
+              var workflowState = kbCheck.getValue('workflow_state');
+              if (workflowState && workflowState !== 'published') {
+                gs.info('🔒 searchKnowledgeBase: Excluding article (not published): ' + result.title + ' [state: ' + workflowState + ']');
+                continue;
+              }
+
+              // Level 2: Check if active
+              var isActive = kbCheck.getValue('active');
+              if (isActive === 'false' || isActive === false) {
+                gs.info('🔒 searchKnowledgeBase: Excluding article (not active): ' + result.title);
+                continue;
+              }
+
+              // Level 3: Check canRead() for ACL validation
+              if (!kbCheck.canRead()) {
+                gs.info('🔒 searchKnowledgeBase: Excluding article (ACL denied): ' + result.title + ' [' + sys_id + ']');
+                continue;
+              }
+
+              // Level 4: Check user criteria (can_read_user_criteria field)
+              var canReadUserCriteria = kbCheck.getValue('can_read_user_criteria');
+              if (canReadUserCriteria) {
+                // Use ServiceNow's native API to check user criteria against current user
+                var kbUserCriteria = new GlideSysUserCriteria();
+                kbUserCriteria.setUserCriteriaID(canReadUserCriteria);
+                if (!kbUserCriteria.userMatches()) {
+                  gs.info('🔒 searchKnowledgeBase: Excluding article (user criteria not met): ' + result.title);
+                  continue;
+                }
+              }
+
+              // Level 5: Check valid_to date (article expiration)
+              var validTo = kbCheck.getValue('valid_to');
+              if (validTo) {
+                var validToDate = new GlideDateTime(validTo);
+                var now = new GlideDateTime();
+                if (validToDate.before(now)) {
+                  gs.info('🔒 searchKnowledgeBase: Excluding article (expired): ' + result.title);
+                  continue;
+                }
+              }
+
+              gs.info('✅ searchKnowledgeBase: Article passed all checks: ' + result.title);
+            } else {
+              gs.warn('🔒 searchKnowledgeBase: Article not found or no access: ' + result.title + ' [' + sys_id + ']');
+              continue;
+            }
+          } else {
+            gs.warn('🔒 searchKnowledgeBase: Invalid sys_id for result: ' + result.title);
+            continue;
+          }
+
+          // Extract article data from Contextual Search result - only for validated articles
           articles.push({
             sys_id: result.sys_id || '',
             number: result.number || '',
@@ -503,6 +728,8 @@ TSMAISearchEngine.prototype = {
             helpful_count: result.useful_count || 0
           });
         }
+
+        gs.info('🔍 searchKnowledgeBase: Security filtering complete: ' + articles.length + ' articles passed out of ' + results.length + ' total');
       }
 
       return {
@@ -521,12 +748,16 @@ TSMAISearchEngine.prototype = {
   },
 
   /**
-   * Fallback knowledge search using GlideRecord (if Contextual Search unavailable)
+   * Fallback knowledge search using GlideRecordSecure (if Contextual Search unavailable)
+   * Uses GlideRecordSecure to automatically enforce ACLs and user criteria
    */
   fallbackKnowledgeSearch: function(searchTerm) {
     try {
+      gs.info('🔍 fallbackKnowledgeSearch: Starting fallback search with GlideRecordSecure');
       var articles = [];
-      var kb = new GlideRecord('kb_knowledge');
+
+      // Use GlideRecordSecure instead of GlideRecord for automatic ACL enforcement
+      var kb = new GlideRecordSecure('kb_knowledge');
       kb.addActiveQuery();
       kb.addQuery('workflow_state', 'published');
 
@@ -538,25 +769,57 @@ TSMAISearchEngine.prototype = {
       kb.setLimit(10);
       kb.query();
 
+      var foundCount = 0;
       while (kb.next()) {
+        foundCount++;
+
+        // Additional validation: Check expiration date
+        var validTo = kb.getValue('valid_to');
+        if (validTo) {
+          var validToDate = new GlideDateTime(validTo);
+          var now = new GlideDateTime();
+          if (validToDate.before(now)) {
+            gs.info('🔒 fallbackKnowledgeSearch: Skipping expired article: ' + kb.getValue('short_description'));
+            continue;
+          }
+        }
+
+        // Additional validation: Check user criteria if present
+        var canReadUserCriteria = kb.getValue('can_read_user_criteria');
+        if (canReadUserCriteria) {
+          // Use ServiceNow's native API to check user criteria against current user
+          var fallbackKbCriteria = new GlideSysUserCriteria();
+          fallbackKbCriteria.setUserCriteriaID(canReadUserCriteria);
+          if (!fallbackKbCriteria.userMatches()) {
+            gs.info('🔒 fallbackKnowledgeSearch: Skipping article (user criteria not met): ' + kb.getValue('short_description'));
+            continue;
+          }
+        }
+
+        var textContent = kb.getValue('text') || '';
+        var snippet = textContent.length > 200 ? textContent.substring(0, 200) + '...' : textContent;
+
         articles.push({
           sys_id: kb.getValue('sys_id'),
           number: kb.getValue('number'),
           title: kb.getValue('short_description'),
-          snippet: kb.getValue('text').substring(0, 200) + '...',
-          content_preview: kb.getValue('text').substring(0, 200) + '...',
+          snippet: snippet,
+          content_preview: snippet,
           url: '/kb_view.do?sys_kb_id=' + kb.getValue('sys_id'),
           relevance_score: 50,
           workflow_state: kb.getValue('workflow_state')
         });
       }
 
+      gs.info('🔍 fallbackKnowledgeSearch: Found ' + foundCount + ' articles, ' + articles.length + ' passed security checks');
+
       return {
         success: true,
         results: articles,
-        searchMethod: 'fallback_gliderecord'
+        searchMethod: 'fallback_gliderecord_secure'
       };
     } catch (error) {
+      gs.error('❌ fallbackKnowledgeSearch error: ' + error.toString());
       return {
         success: false,
         error: error.toString(),
@@ -586,7 +849,7 @@ TSMAISearchEngine.prototype = {
       }
 
       // Create helper instance
-      var helpers = new TSMAIRequestHelpers();
+      var helpers = new ALAIRequestHelpers();
 
       // SPECIAL CASE: Check if user is asking for a specific KB article by name/number
       var questionLower = userQuestion.toLowerCase();
@@ -673,7 +936,7 @@ TSMAISearchEngine.prototype = {
         prompt += 'If NO articles are relevant, return: []';
       }
 
-      var response = helpers.callOpenAI(prompt, llmEnabled, null, 100);
+      var response = helpers.callOpenAI(prompt, llmEnabled, 'alliander-ai-assistant', 100);
       if (response.success) {
         // Parse the response to get relevant article numbers
         var relevantNumbers = helpers.parseJSONResponse(response.content);
@@ -893,8 +1156,8 @@ TSMAISearchEngine.prototype = {
         : 'User asks: "' + userRequest + '"\n\nWhich of these Service Catalog items are REALLY relevant to this request? Give only the numbers of the most relevant items (max 5), separated by commas.\n\nAvailable items:\n' + itemList + '\n\nAnswer with only numbers (e.g: 1,3,5):';
 
       // Call LLM using the same helper function as classification
-      var helpers = new TSMAIRequestHelpers();
-      var llmResponse = helpers.callOpenAI(prompt, llmEnabled, null, 50);
+      var helpers = new ALAIRequestHelpers();
+      var llmResponse = helpers.callOpenAI(prompt, llmEnabled, 'alliander-ai-assistant', 50);
 
       if (!llmResponse.success) {
         gs.warn('AI Filtering failed: ' + llmResponse.error + ', using top 5 items');
@@ -940,5 +1203,5 @@ TSMAISearchEngine.prototype = {
   },
 
 
-  type: 'TSMAISearchEngine'
+  type: 'ALAISearchEngine'
 };
